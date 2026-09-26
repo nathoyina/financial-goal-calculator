@@ -13,6 +13,7 @@ export function NumberField({
   noteTone = "neutral",
   describedByExtra,
   labelAddon,
+  onBlur,
 }: {
   id: string;
   label: string;
@@ -26,6 +27,7 @@ export function NumberField({
   noteTone?: "neutral" | "caution";
   describedByExtra?: string;
   labelAddon?: ReactNode;
+  onBlur?: (value: string) => void;
 }) {
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
@@ -58,6 +60,7 @@ export function NumberField({
           id={id}
           value={value}
           onChange={(event) => onChange(event.target.value)}
+          onBlur={onBlur ? (event) => onBlur(event.target.value) : undefined}
           inputMode="decimal"
           autoComplete="off"
           spellCheck={false}

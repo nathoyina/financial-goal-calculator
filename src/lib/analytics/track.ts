@@ -1,6 +1,8 @@
+export type AnalyticsProp = string | number | boolean | readonly string[];
+
 export interface TrackedEvent {
   event: string;
-  props: Record<string, string | number | boolean>;
+  props: Record<string, AnalyticsProp>;
 }
 
 /**
@@ -9,7 +11,7 @@ export interface TrackedEvent {
  */
 const events: TrackedEvent[] = [];
 
-export function track(event: string, props: Record<string, string | number | boolean> = {}): void {
+export function track(event: string, props: Record<string, AnalyticsProp> = {}): void {
   events.push({ event, props });
 }
 
@@ -51,20 +53,31 @@ export function gapBand(gap: number): string {
 
 const OPTIONAL_STEPS = new Set<StepName>(["housing loan", "CPF", "education"]);
 
+export interface EducationCompletedTracking {
+  children_count: number;
+  education_choice: readonly string[];
+  /** "none" for a child who did not start from an overseas preset. Same order as education_choice. */
+  overseas_destination: readonly string[];
+  preset_edited: readonly string[];
+}
+
 /**
  * Step Completed props. Housing, CPF, and education also record the Yes or No answer.
- * Education adds each child's starting preset. overseas_destination is included
- * only when that child started from overseas. No amounts.
+ * A Yes on education adds one list per child, in child order. A No carries only step and answer.
+ * No amounts.
  */
 export function stepCompletedProps(
   step: StepName,
   answer?: "yes" | "no",
-  education?: Record<string, string>,
-): Record<string, string> {
-  const props: Record<string, string> = { step };
+  education?: EducationCompletedTracking,
+): Record<string, AnalyticsProp> {
+  const props: Record<string, AnalyticsProp> = { step };
   if (OPTIONAL_STEPS.has(step) && answer) props.answer = answer;
-  if (step === "education" && education) {
-    for (const [key, value] of Object.entries(education)) props[key] = value;
+  if (step === "education" && answer === "yes" && education) {
+    props.children_count = education.children_count;
+    props.education_choice = education.education_choice;
+    props.overseas_destination = education.overseas_destination;
+    props.preset_edited = education.preset_edited;
   }
   return props;
 }

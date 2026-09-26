@@ -96,22 +96,45 @@ export function applyOverseasPreset<T extends EducationChildState>(child: T, pre
   };
 }
 
-/**
- * Editing the yearly cost or the years shows Custom and drops the estimate.
- * The starting preset and overseas destination stay, so tracking can still name them.
- */
-export function editEducationFigure<T extends EducationChildState>(
+export type EducationFigureField = "years" | "yearlyCostToday";
+
+/** Typing updates the figure only. The preset, country row, and estimate stay until blur. */
+export function draftEducationFigure<T extends EducationChildState>(
   child: T,
-  field: "years" | "yearlyCostToday",
+  field: EducationFigureField,
   value: string,
 ): T {
-  const fromPreset = activePresetId(child) !== null;
+  return { ...child, [field]: value };
+}
+
+function presetFigure(preset: EducationPresetId, field: EducationFigureField): number {
+  const figures = EDUCATION_PRESETS[preset];
+  return field === "years" ? figures.years : figures.yearlyCostSgd;
+}
+
+function matchesPresetFigure(value: string, preset: EducationPresetId, field: EducationFigureField): boolean {
+  const parsed = parseDecimal(value);
+  return parsed !== null && parsed === presetFigure(preset, field);
+}
+
+/**
+ * Leaving the field compares it with the preset. A different figure shows Custom
+ * and drops the estimate. The starting preset and destination stay for tracking.
+ * The same figure, including one typed and then changed back, changes nothing.
+ */
+export function blurEducationFigure<T extends EducationChildState>(
+  child: T,
+  field: EducationFigureField,
+  value: string,
+): T {
+  const drafted = draftEducationFigure(child, field, value);
+  const presetId = activePresetId(child);
+  if (!presetId || matchesPresetFigure(value, presetId, field)) return drafted;
   return {
-    ...child,
-    [field]: value,
+    ...drafted,
     educationChoice: "custom",
     overseasPreset: null,
-    presetEdited: fromPreset ? true : child.presetEdited,
+    presetEdited: true,
   };
 }
 
@@ -174,48 +197,28 @@ export function educationTotalCopy(child: EducationChildState): EducationTotalCo
   };
 }
 
-export interface ChildEducationTracking {
-  education_choice: EducationChoice;
-  preset_edited: "yes" | "no";
-  overseas_destination?: OverseasPresetId;
+export interface EducationStepAnalytics {
+  children_count: number;
+  education_choice: EducationChoice[];
+  overseas_destination: ("none" | OverseasPresetId)[];
+  preset_edited: ("yes" | "no")[];
 }
 
 /**
- * Tracking for one child. education_choice is the preset they started from.
- * Custom means they pressed Custom. overseas_destination is sent only for an
- * overseas start. Amounts are not included.
- */
-export function childEducationTracking(
-  child: Pick<EducationChildState, "startedFrom" | "startedOverseas" | "presetEdited">,
-): ChildEducationTracking | null {
-  if (child.startedFrom === null) return null;
-  const tracked: ChildEducationTracking = {
-    education_choice: child.startedFrom,
-    preset_edited: child.presetEdited ? "yes" : "no",
-  };
-  if (child.startedFrom === "overseas" && child.startedOverseas) {
-    tracked.overseas_destination = child.startedOverseas;
-  }
-  return tracked;
-}
-
-/**
- * Step Completed properties for every child who has a starting choice.
- * One child uses education_choice, preset_edited, and overseas_destination.
- * Further children use the same names with _2, _3, and so on. No amounts.
+ * One list per property, in child order, lined up by index.
+ * overseas_destination is "none" when that child did not start overseas.
+ * education_choice is the preset they started from, not the Custom pill after an edit.
+ * No amounts.
  */
 export function educationStepAnalytics(
   children: readonly Pick<EducationChildState, "startedFrom" | "startedOverseas" | "presetEdited">[],
-): Record<string, string> {
-  const tracked = children
-    .map((child) => childEducationTracking(child))
-    .filter((item): item is ChildEducationTracking => item !== null);
-  const props: Record<string, string> = {};
-  tracked.forEach((item, index) => {
-    const suffix = index === 0 ? "" : `_${index + 1}`;
-    props[`education_choice${suffix}`] = item.education_choice;
-    props[`preset_edited${suffix}`] = item.preset_edited;
-    if (item.overseas_destination) props[`overseas_destination${suffix}`] = item.overseas_destination;
-  });
-  return props;
+): EducationStepAnalytics {
+  return {
+    children_count: children.length,
+    education_choice: children.map((child) => child.startedFrom ?? "custom"),
+    overseas_destination: children.map((child) =>
+      child.startedFrom === "overseas" && child.startedOverseas ? child.startedOverseas : "none",
+    ),
+    preset_edited: children.map((child) => (child.presetEdited ? "yes" : "no")),
+  };
 }

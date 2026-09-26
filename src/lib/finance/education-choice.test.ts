@@ -11,7 +11,8 @@ import {
   activePresetId,
   applyOverseasPreset,
   applyStudyChoice,
-  editEducationFigure,
+  blurEducationFigure,
+  draftEducationFigure,
   educationStepAnalytics,
   educationTotalCopy,
   presetEstimateExplanation,
@@ -87,7 +88,14 @@ describe("education cost presets", () => {
       `${EDUCATION_ESTIMATE_CAVEAT} Tuition is an assumption.`,
     );
 
-    const editedCost = editEducationFigure(local, "yearlyCostToday", "15000");
+    const typing = draftEducationFigure(applyOverseasPreset(child(), "uk"), "yearlyCostToday", "60000");
+    expect(typing.educationChoice).toBe("overseas");
+    expect(typing.overseasPreset).toBe("uk");
+    expect(typing.presetEdited).toBe(false);
+    expect(activePresetId(typing)).toBe("uk");
+    expect(educationTotalCopy(typing)?.visible).toBe("About S$180,000 in today’s prices, starting in 2039");
+
+    const editedCost = blurEducationFigure(local, "yearlyCostToday", "15000");
     expect(editedCost.educationChoice).toBe("custom");
     expect(editedCost.overseasPreset).toBeNull();
     expect(editedCost.startedFrom).toBe("local");
@@ -96,7 +104,7 @@ describe("education cost presets", () => {
     expect(editedCost.years).toBe("4");
     expect(activePresetId(editedCost)).toBeNull();
 
-    const editedYears = editEducationFigure(applyOverseasPreset(child(), "uk"), "years", "4");
+    const editedYears = blurEducationFigure(applyOverseasPreset(child(), "uk"), "years", "4");
     expect(editedYears.educationChoice).toBe("custom");
     expect(editedYears.startedFrom).toBe("overseas");
     expect(editedYears.startedOverseas).toBe("uk");
@@ -104,6 +112,22 @@ describe("education cost presets", () => {
     expect(editedYears.years).toBe("4");
     expect(editedYears.yearlyCostToday).toBe("56200");
     expect(activePresetId(editedYears)).toBeNull();
+
+    const unchanged = blurEducationFigure(applyOverseasPreset(child(), "uk"), "yearlyCostToday", "56200");
+    expect(unchanged.educationChoice).toBe("overseas");
+    expect(unchanged.overseasPreset).toBe("uk");
+    expect(unchanged.presetEdited).toBe(false);
+    expect(unchanged.startedFrom).toBe("overseas");
+
+    const changedBack = blurEducationFigure(
+      draftEducationFigure(applyOverseasPreset(child(), "uk"), "yearlyCostToday", "1"),
+      "yearlyCostToday",
+      "56200",
+    );
+    expect(changedBack.educationChoice).toBe("overseas");
+    expect(changedBack.overseasPreset).toBe("uk");
+    expect(changedBack.presetEdited).toBe(false);
+    expect(changedBack.yearlyCostToday).toBe("56200");
 
     const custom = applyStudyChoice(local, "custom");
     expect(custom.educationChoice).toBe("custom");
@@ -139,52 +163,52 @@ describe("education cost presets", () => {
   });
 
   it("tracks the starting preset, not the Custom pill shown after an edit", () => {
-    const editedLocal = editEducationFigure(applyStudyChoice(child(), "local"), "yearlyCostToday", "15000");
+    const editedLocal = blurEducationFigure(applyStudyChoice(child(), "local"), "yearlyCostToday", "15000");
     expect(editedLocal.educationChoice).toBe("custom");
     expect(educationStepAnalytics([editedLocal])).toEqual({
-      education_choice: "local",
-      preset_edited: "yes",
+      children_count: 1,
+      education_choice: ["local"],
+      overseas_destination: ["none"],
+      preset_edited: ["yes"],
     });
 
-    const editedUk = editEducationFigure(applyOverseasPreset(child(), "uk"), "years", "4");
+    const editedUk = blurEducationFigure(applyOverseasPreset(child(), "uk"), "years", "4");
     expect(editedUk.educationChoice).toBe("custom");
     expect(educationStepAnalytics([editedUk])).toEqual({
-      education_choice: "overseas",
-      overseas_destination: "uk",
-      preset_edited: "yes",
+      children_count: 1,
+      education_choice: ["overseas"],
+      overseas_destination: ["uk"],
+      preset_edited: ["yes"],
     });
 
     const custom = applyStudyChoice(child(), "custom");
     expect(educationStepAnalytics([custom])).toEqual({
-      education_choice: "custom",
-      preset_edited: "no",
+      children_count: 1,
+      education_choice: ["custom"],
+      overseas_destination: ["none"],
+      preset_edited: ["no"],
     });
-    expect(educationStepAnalytics([custom])).not.toHaveProperty("overseas_destination");
 
     const australia = applyOverseasPreset(child(), "australia");
     expect(australia.presetEdited).toBe(false);
     expect(educationStepAnalytics([australia])).toEqual({
-      education_choice: "overseas",
-      overseas_destination: "australia",
-      preset_edited: "no",
+      children_count: 1,
+      education_choice: ["overseas"],
+      overseas_destination: ["australia"],
+      preset_edited: ["no"],
     });
 
-    expect(educationStepAnalytics([])).toEqual({});
-    expect(
-      educationStepAnalytics([
-        editedLocal,
-        applyOverseasPreset(child(), "us-public"),
-      ]),
-    ).toEqual({
-      education_choice: "local",
-      preset_edited: "yes",
-      education_choice_2: "overseas",
-      overseas_destination_2: "us-public",
-      preset_edited_2: "no",
+    const linedUp = educationStepAnalytics([editedLocal, applyOverseasPreset(child(), "uk")]);
+    expect(linedUp).toEqual({
+      children_count: 2,
+      education_choice: ["local", "overseas"],
+      overseas_destination: ["none", "uk"],
+      preset_edited: ["yes", "no"],
     });
-    expect(JSON.stringify(educationStepAnalytics([editedUk, australia]))).not.toMatch(
-      /14300|56200|67400|58800|78200|\d{5,}/,
-    );
+    expect(linedUp.education_choice).toHaveLength(linedUp.children_count);
+    expect(linedUp.overseas_destination).toHaveLength(linedUp.children_count);
+    expect(linedUp.preset_edited).toHaveLength(linedUp.children_count);
+    expect(JSON.stringify(linedUp)).not.toMatch(/14300|56200|67400|58800|78200|\d{5,}/);
   });
 
   it("ignores arrow keys and selects only on click, Enter, or Space", () => {

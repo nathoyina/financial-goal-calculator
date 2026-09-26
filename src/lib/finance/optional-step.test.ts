@@ -61,8 +61,6 @@ describe("optional yes or no choice", () => {
     expect(education.completed).toEqual({
       step: "education",
       answer: "no",
-      education_choice: "custom",
-      preset_edited: "no",
     });
     expect(education.form.children).toEqual([child]);
   });

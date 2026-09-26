@@ -58,29 +58,27 @@ describe("analytics", () => {
     expect(stepCompletedProps("education", "no")).toEqual({ step: "education", answer: "no" });
     expect(
       stepCompletedProps("education", "yes", {
-        education_choice: "overseas",
-        overseas_destination: "uk",
-        preset_edited: "yes",
+        children_count: 2,
+        education_choice: ["local", "overseas"],
+        overseas_destination: ["none", "uk"],
+        preset_edited: ["no", "yes"],
       }),
     ).toEqual({
       step: "education",
       answer: "yes",
-      education_choice: "overseas",
-      overseas_destination: "uk",
-      preset_edited: "yes",
+      children_count: 2,
+      education_choice: ["local", "overseas"],
+      overseas_destination: ["none", "uk"],
+      preset_edited: ["no", "yes"],
     });
-    const localEdited = stepCompletedProps("education", "yes", {
-      education_choice: "local",
-      preset_edited: "yes",
+    const ignoredOnNo = stepCompletedProps("education", "no", {
+      children_count: 1,
+      education_choice: ["custom"],
+      overseas_destination: ["none"],
+      preset_edited: ["no"],
     });
-    expect(localEdited).toEqual({
-      step: "education",
-      answer: "yes",
-      education_choice: "local",
-      preset_edited: "yes",
-    });
-    expect(localEdited).not.toHaveProperty("overseas_destination");
-    expect(JSON.stringify(localEdited)).not.toMatch(/\d{4,}|salary|balance|14300|56200/);
+    expect(ignoredOnNo).toEqual({ step: "education", answer: "no" });
+    expect(JSON.stringify(ignoredOnNo)).not.toMatch(/14300|56200|children_count|education_choice/);
     expect(JSON.stringify(getTrackedEvents())).not.toMatch(/Step Skipped/);
     expect(JSON.stringify(verdict.props)).not.toMatch(/220000|salary|balance|instalment/i);
     expect(verdict.props.relies_on_estimate).toBe(true);

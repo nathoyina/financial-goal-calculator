@@ -7,7 +7,8 @@ import {
   activePresetId,
   applyOverseasPreset,
   applyStudyChoice,
-  editEducationFigure,
+  blurEducationFigure,
+  draftEducationFigure,
   educationTotalCopy,
   presetEstimateExplanation,
   presetEstimateFigure,
@@ -214,9 +215,10 @@ export function ChildEducationCard({
       <NumberField
         id={`child-years-${child.id}`}
         label="Years of costs"
-        hint="One withdrawal a year. Editing this switches a preset to Custom."
+        hint="One withdrawal a year. Leave this field with a different figure to switch a preset to Custom."
         value={child.years}
-        onChange={(value) => onChild(editEducationFigure(child, "years", value))}
+        onChange={(value) => onChild(draftEducationFigure(child, "years", value))}
+        onBlur={(value) => onChild(blurEducationFigure(child, "years", value))}
         suffix="years"
         error={fieldError("childYears")}
         describedByExtra={studyHintId}
@@ -227,7 +229,8 @@ export function ChildEducationCard({
         label="Yearly cost"
         hint={costHint(preset)}
         value={child.yearlyCostToday}
-        onChange={(value) => onChild(editEducationFigure(child, "yearlyCostToday", value))}
+        onChange={(value) => onChild(draftEducationFigure(child, "yearlyCostToday", value))}
+        onBlur={(value) => onChild(blurEducationFigure(child, "yearlyCostToday", value))}
         prefix="S$"
         error={fieldError("childCost")}
         describedByExtra={studyHintId}
