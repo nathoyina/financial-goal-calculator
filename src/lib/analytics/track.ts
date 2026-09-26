@@ -51,10 +51,28 @@ export function gapBand(gap: number): string {
 
 const OPTIONAL_STEPS = new Set<StepName>(["housing loan", "CPF", "education"]);
 
-/** Step Completed props. Housing, CPF, and education also record the Yes or No answer. */
-export function stepCompletedProps(step: StepName, answer?: "yes" | "no"): Record<string, string> {
-  if (OPTIONAL_STEPS.has(step) && answer) return { step, answer };
-  return { step };
+export interface EducationStepTracking {
+  education_choice: "local" | "overseas" | "custom";
+  preset_edited: "yes" | "no";
+}
+
+/**
+ * Step Completed props. Housing, CPF, and education also record the Yes or No answer.
+ * Education adds the pill that was used and whether a preset figure was edited.
+ * No amounts.
+ */
+export function stepCompletedProps(
+  step: StepName,
+  answer?: "yes" | "no",
+  education?: EducationStepTracking,
+): Record<string, string> {
+  const props: Record<string, string> = { step };
+  if (OPTIONAL_STEPS.has(step) && answer) props.answer = answer;
+  if (step === "education" && education) {
+    props.education_choice = education.education_choice;
+    props.preset_edited = education.preset_edited;
+  }
+  return props;
 }
 
 export function verdictAnalyticsProps(input: {

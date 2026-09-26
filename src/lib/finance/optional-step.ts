@@ -1,4 +1,5 @@
 import { STEP_NAMES, stepCompletedProps } from "../analytics/track";
+import { educationStepAnalytics } from "./education-choice";
 import type { OptionalAnswer, PlanFormState } from "./plan-form";
 
 export function optionalAnswer(step: number, form: PlanFormState): OptionalAnswer {
@@ -99,7 +100,11 @@ export function chooseOptionalAnswer(step: number, form: PlanFormState, answer: 
   }
 
   if (answer === "no") {
-    return { form: next, nextStep: step + 1, completed: stepCompletedProps(stepName, "no") };
+    const completed =
+      stepName === "education"
+        ? stepCompletedProps(stepName, "no", educationStepAnalytics(form.children))
+        : stepCompletedProps(stepName, "no");
+    return { form: next, nextStep: step + 1, completed };
   }
   return { form: next, nextStep: null, completed: null };
 }

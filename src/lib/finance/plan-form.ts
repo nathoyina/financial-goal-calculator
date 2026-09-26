@@ -1,16 +1,25 @@
 import { CPF_INTEREST } from "../cpf/constants";
 import { calculatePlan, type PlanInput, type PlanResult } from "./plan";
+import type { EducationChildState } from "./education-choice";
 import { parseDecimal } from "./parse";
 
 export { parseDecimal };
 
-export interface ChildForm {
+export interface ChildForm extends EducationChildState {
   id: string;
-  currentAge: string;
-  startAge: string;
-  years: string;
-  yearlyCostToday: string;
-  path: "local" | "overseas" | "other";
+}
+
+export function createChildForm(id: string): ChildForm {
+  return {
+    id,
+    currentAge: "",
+    startAge: "19",
+    years: "",
+    yearlyCostToday: "",
+    educationChoice: null,
+    overseasPreset: null,
+    presetEdited: false,
+  };
 }
 
 export type OptionalAnswer = "yes" | "no" | null;
@@ -172,6 +181,20 @@ export function validateStep(step: number, form: PlanFormState): FieldError | nu
       return { field: "addChild", message: "Add a child, or choose No.", reason: "missing" };
     }
     for (const child of form.children) {
+      if (child.educationChoice === null) {
+        return {
+          field: `study-${child.id}`,
+          message: "Pick Local university, Overseas university, or Custom.",
+          reason: "missing",
+        };
+      }
+      if (child.educationChoice === "overseas" && child.overseasPreset === null) {
+        return {
+          field: `overseas-${child.id}`,
+          message: "Pick UK, Australia, US public, or US private, or choose Custom.",
+          reason: "missing",
+        };
+      }
       const age = readNumber(child.currentAge, "childAge", "the child’s age");
       if (isFieldError(age)) return age;
       const start = readNumber(child.startAge, "childStartAge", "the age costs start");

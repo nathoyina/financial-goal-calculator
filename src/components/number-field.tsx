@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 export function NumberField({
   id,
   label,
@@ -10,6 +12,7 @@ export function NumberField({
   note,
   noteTone = "neutral",
   describedByExtra,
+  labelAddon,
 }: {
   id: string;
   label: string;
@@ -22,6 +25,7 @@ export function NumberField({
   note?: string | null;
   noteTone?: "neutral" | "caution";
   describedByExtra?: string;
+  labelAddon?: ReactNode;
 }) {
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
@@ -33,10 +37,13 @@ export function NumberField({
 
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-medium text-white">
-        {label}
-        {unit ? <span className="sr-only">, {unit}</span> : null}
-      </label>
+      <div className="flex flex-wrap items-center gap-2">
+        <label htmlFor={id} className="text-sm font-medium text-white">
+          {label}
+          {unit ? <span className="sr-only">, {unit}</span> : null}
+        </label>
+        {labelAddon}
+      </div>
       <div
         className={`field-shell flex h-12 items-center rounded-full border bg-void ${
           error ? "border-danger" : "border-border"

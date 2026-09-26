@@ -56,6 +56,17 @@ describe("analytics", () => {
     expect(stepCompletedProps("housing loan", "no")).toEqual({ step: "housing loan", answer: "no" });
     expect(stepCompletedProps("CPF", "yes")).toEqual({ step: "CPF", answer: "yes" });
     expect(stepCompletedProps("education", "no")).toEqual({ step: "education", answer: "no" });
+    expect(
+      stepCompletedProps("education", "yes", { education_choice: "overseas", preset_edited: "yes" }),
+    ).toEqual({
+      step: "education",
+      answer: "yes",
+      education_choice: "overseas",
+      preset_edited: "yes",
+    });
+    expect(
+      JSON.stringify(stepCompletedProps("education", "yes", { education_choice: "local", preset_edited: "no" })),
+    ).not.toMatch(/\d{4,}|salary|balance|14300|56200/);
     expect(JSON.stringify(getTrackedEvents())).not.toMatch(/Step Skipped/);
     expect(JSON.stringify(verdict.props)).not.toMatch(/220000|salary|balance|instalment/i);
     expect(verdict.props.relies_on_estimate).toBe(true);
