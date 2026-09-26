@@ -165,6 +165,19 @@ html[data-typing="true"] .step-rise {
   color: #fff;
 }
 
+.choice-pill {
+  cursor: pointer;
+}
+
+.choice-pill:has(:focus-visible) {
+  outline: 2px solid var(--yellow);
+  outline-offset: 3px;
+}
+
+.choice-pill.pill-shout:has(:focus-visible) {
+  outline-color: #fff;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   html:not([data-typing="true"]) .pill:hover {
     transform: scale(1.03);

@@ -31,12 +31,10 @@ import {
   DEFAULT_PLAN_FORM,
   parseDecimal,
   parsePlanForm,
-  skipDiscardNote,
-  skipLabel,
-  stepWouldDiscardEntries,
   validateStep,
   type ChildForm,
   type FieldError,
+  type OptionalAnswer,
   type PlanFormState,
 } from "@/lib/finance/plan-form";
 
@@ -56,6 +54,8 @@ const FIELD_IDS: Record<string, string> = {
   extraMonthlySaving: "extra",
   annualReturn: "return",
   annualInflation: "inflation",
+  cpfAnswer: "cpf-yes",
+  loanAnswer: "loan-yes",
   loanBalance: "loan-balance",
   loanRate: "loan-rate",
   loanYears: "loan-years",
@@ -65,6 +65,8 @@ const FIELD_IDS: Record<string, string> = {
   ra: "ra",
   ma: "ma",
   payoutAge: "payout-age",
+  childrenAnswer: "children-yes",
+  addChild: "add-child",
 };
 
 export function PlannerApp() {
@@ -76,7 +78,6 @@ export function PlannerApp() {
   const firstVerdict = useRef(true);
   const adjustmentTracked = useRef(false);
   const [headingFocus, setHeadingFocus] = useState(0);
-  const [skipConfirm, setSkipConfirm] = useState(false);
 
   const requestHeadingFocus = () => setHeadingFocus((current) => current + 1);
 
@@ -155,53 +156,37 @@ export function PlannerApp() {
       adjustmentTracked.current = true;
     }
     setError(null);
-    setSkipConfirm(false);
     setForm((current) => ({ ...current, ...patch }));
     if (source === "suggestion") requestHeadingFocus();
   };
 
   const fieldError = (field: string) => (error?.field === field ? error.message : undefined);
 
-  const goNext = (mode: "complete" | "skip") => {
+  const goNext = () => {
     if (!started.current) {
       started.current = true;
       track("Calculator Started");
     }
-    if (mode === "skip") {
+    const answer =
+      step === 2 ? form.loanAnswer : step === 3 ? form.cpfAnswer : step === 4 ? form.childrenAnswer : "yes";
+    if (answer === "no") {
       track("Step Skipped", { step: STEP_NAMES[step] });
-      if (step === 2) update({ hasLoan: false }, "suggestion");
-      if (step === 3) update({ includeCpf: false }, "suggestion");
-      if (step === 4) update({ children: [] }, "suggestion");
+      const patch: Partial<PlanFormState> =
+        step === 2 ? { hasLoan: false } : step === 3 ? { includeCpf: false } : { children: [] };
+      update(patch, "suggestion");
       setStep((current) => current + 1);
+      requestHeadingFocus();
       return;
     }
-    const problem = validateStep(step, mode === "complete" && step === 3 ? { ...form, includeCpf: true } : form);
+    const problem = validateStep(step, form);
     if (problem) {
       track("Input Validation Error", { field: problem.field, reason: problem.reason });
       setError(problem);
       return;
     }
-    if (step === 3) update({ includeCpf: true }, "suggestion");
     track("Step Completed", { step: STEP_NAMES[step] });
-    setSkipConfirm(false);
     setStep((current) => current + 1);
     requestHeadingFocus();
-  };
-
-  const discardsEntries = stepWouldDiscardEntries(step, form);
-
-  useEffect(() => {
-    if (!skipConfirm || !discardsEntries) return;
-    document.getElementById("skip-discard-note")?.scrollIntoView({ block: "nearest" });
-  }, [skipConfirm, discardsEntries]);
-
-  const pressSkip = () => {
-    if (discardsEntries && !skipConfirm) {
-      setSkipConfirm(true);
-      return;
-    }
-    setSkipConfirm(false);
-    goNext("skip");
   };
 
   useLayoutEffect(() => {
@@ -323,23 +308,22 @@ export function PlannerApp() {
           {step === 2 ? (
             <section className="flex flex-col gap-4">
               <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
-                Home loan
+                Are you still paying a home loan?
               </h2>
-              <p id={HOUSING_HINT_ID} className="text-sm leading-6 text-muted">
-                Don’t include this in your monthly living costs. Optional. Payments reduce what you can save until the loan ends.
-              </p>
-              <label className="flex min-h-11 items-center gap-3 text-sm font-medium">
-                <input
-                  type="checkbox"
-                  className="size-5"
-                  checked={form.hasLoan}
-                  aria-describedby={HOUSING_HINT_ID}
-                  onChange={(event) => update({ hasLoan: event.target.checked })}
-                />
-                I am still paying a home loan
-              </label>
-              {form.hasLoan ? (
+              <YesNoChoice
+                name="loan"
+                value={form.loanAnswer}
+                yesId="loan-yes"
+                noId="loan-no"
+                labelledBy={HEADING_ID}
+                error={fieldError("loanAnswer")}
+                onChange={(answer) => update({ loanAnswer: answer, hasLoan: answer === "yes" })}
+              />
+              {form.loanAnswer === "yes" ? (
                 <>
+                  <p id={HOUSING_HINT_ID} className="text-sm leading-6 text-muted">
+                    Don’t include this in your monthly living costs. Payments reduce what you can save until the loan ends.
+                  </p>
                   <NumberField id="loan-balance" label="Outstanding balance" hint="What you still owe." value={form.loanBalance} onChange={(value) => update({ loanBalance: value })} prefix="S$" error={fieldError("loanBalance")} describedByExtra={HOUSING_HINT_ID} />
                   <NumberField id="loan-rate" label="Interest rate" hint={`Your loan rate. The starting figure is the ${CPF_INTEREST.hdbConcessionary.year} HDB concessionary rate of ${formatPercent(CPF_INTEREST.hdbConcessionary.value)}. Replace it with your own. Monthly rest. This plan does not charge CPF accrued interest on housing withdrawals, because that rate was not confirmed.`} value={form.loanRate} onChange={(value) => update({ loanRate: value })} suffix="%" error={fieldError("loanRate")} describedByExtra={HOUSING_HINT_ID} />
                   <NumberField id="loan-years" label="Years left" hint="Remaining tenure." value={form.loanYears} onChange={(value) => update({ loanYears: value })} suffix="years" error={fieldError("loanYears")} describedByExtra={HOUSING_HINT_ID} />
@@ -360,27 +344,51 @@ export function PlannerApp() {
           {step === 3 ? (
             <section className="flex flex-col gap-4">
               <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
-                CPF balances
+                Include your CPF savings?
               </h2>
-              <p className="text-sm leading-6 text-muted">
-                SGFinDex is not available to this app. It is reached through participating banks and government services
-                with Singpass, and there is no public API for an independent calculator. Enter the balances yourself, or skip.
-              </p>
-              <NumberField id="oa" label="Ordinary Account (OA)" hint={`Savings that can pay a home loan. This plan uses the ${CPF_INTEREST.ordinaryAccount.year} floor rate of ${formatPercent(CPF_INTEREST.ordinaryAccount.value)}.`} value={form.oa} onChange={(value) => update({ oa: value })} prefix="S$" error={fieldError("oa")} />
-              <NumberField id="sa" label="Special Account (SA)" hint="Closed at 55. Moved into the Retirement Account up to the Full Retirement Sum. Anything above that goes back to the OA." value={form.sa} onChange={(value) => update({ sa: value })} prefix="S$" error={fieldError("sa")} />
-              <NumberField id="ra" label="Retirement Account (RA)" hint="Usually 0 before 55. This is what CPF LIFE is estimated from." value={form.ra} onChange={(value) => update({ ra: value })} prefix="S$" error={fieldError("ra")} />
-              <NumberField id="ma" label="MediSave (MA)" hint={`Kept for healthcare. The ${BASIC_HEALTHCARE_SUM.year} Basic Healthcare Sum is ${formatMoney(BASIC_HEALTHCARE_SUM.value)}. It is not spent on living costs here.`} value={form.ma} onChange={(value) => update({ ma: value })} prefix="S$" error={fieldError("ma")} />
-              <NumberField id="payout-age" label="CPF LIFE payout age" hint={`From ${CPF_LIFE_DEFERRAL.earliestAge} to ${CPF_LIFE_DEFERRAL.latestAge}. Later ages use CPF’s “up to ${formatPercent(CPF_LIFE_DEFERRAL.perYear)} a year” deferral as an estimate, capped at ${formatPercent(CPF_LIFE_DEFERRAL.maxIncrease)}.`} value={form.payoutAge} onChange={(value) => update({ payoutAge: value })} suffix="years" error={fieldError("payoutAge")} />
+              <YesNoChoice
+                name="cpf"
+                value={form.cpfAnswer}
+                yesId="cpf-yes"
+                noId="cpf-no"
+                labelledBy={HEADING_ID}
+                error={fieldError("cpfAnswer")}
+                onChange={(answer) => update({ cpfAnswer: answer, includeCpf: answer === "yes" })}
+              />
+              {form.cpfAnswer === "yes" ? (
+                <>
+                  <p className="text-sm leading-6 text-muted">
+                    SGFinDex is not available to this app. It is reached through participating banks and government services
+                    with Singpass, and there is no public API for an independent calculator. Enter the balances yourself.
+                  </p>
+                  <NumberField id="oa" label="Ordinary Account (OA)" hint={`Savings that can pay a home loan. This plan uses the ${CPF_INTEREST.ordinaryAccount.year} floor rate of ${formatPercent(CPF_INTEREST.ordinaryAccount.value)}.`} value={form.oa} onChange={(value) => update({ oa: value })} prefix="S$" error={fieldError("oa")} />
+                  <NumberField id="sa" label="Special Account (SA)" hint="Closed at 55. Moved into the Retirement Account up to the Full Retirement Sum. Anything above that goes back to the OA." value={form.sa} onChange={(value) => update({ sa: value })} prefix="S$" error={fieldError("sa")} />
+                  <NumberField id="ra" label="Retirement Account (RA)" hint="Usually 0 before 55. This is what CPF LIFE is estimated from." value={form.ra} onChange={(value) => update({ ra: value })} prefix="S$" error={fieldError("ra")} />
+                  <NumberField id="ma" label="MediSave (MA)" hint={`Kept for healthcare. The ${BASIC_HEALTHCARE_SUM.year} Basic Healthcare Sum is ${formatMoney(BASIC_HEALTHCARE_SUM.value)}. It is not spent on living costs here.`} value={form.ma} onChange={(value) => update({ ma: value })} prefix="S$" error={fieldError("ma")} />
+                  <NumberField id="payout-age" label="CPF LIFE payout age" hint={`From ${CPF_LIFE_DEFERRAL.earliestAge} to ${CPF_LIFE_DEFERRAL.latestAge}. Later ages use CPF’s “up to ${formatPercent(CPF_LIFE_DEFERRAL.perYear)} a year” deferral as an estimate, capped at ${formatPercent(CPF_LIFE_DEFERRAL.maxIncrease)}.`} value={form.payoutAge} onChange={(value) => update({ payoutAge: value })} suffix="years" error={fieldError("payoutAge")} />
+                </>
+              ) : null}
             </section>
           ) : null}
 
           {step === 4 ? (
             <section className="flex flex-col gap-4">
               <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
-                Children’s education
+                Planning for children&apos;s education?
               </h2>
+              <YesNoChoice
+                name="children"
+                value={form.childrenAnswer}
+                yesId="children-yes"
+                noId="children-no"
+                labelledBy={HEADING_ID}
+                error={fieldError("childrenAnswer")}
+                onChange={(answer) => update({ childrenAnswer: answer })}
+              />
+              {form.childrenAnswer === "yes" ? (
+                <>
               <p className="text-sm leading-6 text-muted">
-                Optional. Each study year is taken from cash savings, inflated from today’s prices. Local or overseas is only a label. You type the cost.
+                Each study year is taken from cash savings, inflated from today’s prices. Local or overseas is only a label. You type the cost.
               </p>
               {form.children.map((child, index) => (
                 <fieldset key={child.id} className="flex flex-col gap-4 rounded-[32px] border border-border p-4">
@@ -414,6 +422,7 @@ export function PlannerApp() {
                 </fieldset>
               ))}
               <button
+                id="add-child"
                 type="button"
                 className="pill pill-ghost self-start text-sm"
                 onClick={() =>
@@ -427,8 +436,10 @@ export function PlannerApp() {
               >
                 Add a child
               </button>
-              {error && ["childAge", "childStartAge", "childYears", "childCost"].includes(error.field) ? (
+              {error && ["addChild", "childAge", "childStartAge", "childYears", "childCost"].includes(error.field) ? (
                 <p role="alert" className="text-sm text-danger">{error.message}</p>
+              ) : null}
+                </>
               ) : null}
             </section>
           ) : null}
@@ -456,24 +467,9 @@ export function PlannerApp() {
               </button>
             ) : null}
             {step < VERDICT ? (
-              <button type="button" className="pill pill-shout" onClick={() => goNext("complete")}>
+              <button type="button" className="pill pill-shout" onClick={goNext}>
                 {step === 4 ? "See the verdict" : "Continue"}
               </button>
-            ) : null}
-            {step >= 2 && step < VERDICT ? (
-              <button
-                type="button"
-                className="pill pill-ghost"
-                aria-describedby={skipConfirm && discardsEntries ? "skip-discard-note" : undefined}
-                onClick={pressSkip}
-              >
-                {skipLabel(step)}
-              </button>
-            ) : null}
-            {skipConfirm && discardsEntries ? (
-              <p id="skip-discard-note" role="status" className="basis-full text-sm leading-6 text-yellow">
-                {skipDiscardNote(step)}
-              </p>
             ) : null}
           </div>
           </div>
@@ -657,6 +653,58 @@ function Verdict({
         </p>
       </aside>
     </section>
+  );
+}
+
+function YesNoChoice({
+  name,
+  value,
+  yesId,
+  noId,
+  labelledBy,
+  error,
+  onChange,
+}: {
+  name: string;
+  value: OptionalAnswer;
+  yesId: string;
+  noId: string;
+  labelledBy: string;
+  error?: string;
+  onChange: (answer: "yes" | "no") => void;
+}) {
+  const errorId = `${name}-choice-error`;
+  return (
+    <div className="flex flex-col gap-3">
+      <div role="radiogroup" aria-labelledby={labelledBy} className="flex flex-wrap gap-3">
+        {(
+          [
+            ["yes", "Yes", yesId],
+            ["no", "No", noId],
+          ] as const
+        ).map(([answer, label, id]) => (
+          <label key={answer} className={`choice-pill pill ${value === answer ? "pill-shout" : "pill-ghost"}`}>
+            <input
+              id={id}
+              className="sr-only"
+              type="radio"
+              name={name}
+              value={answer}
+              checked={value === answer}
+              aria-invalid={error && id === yesId ? true : undefined}
+              aria-describedby={error && id === yesId ? errorId : undefined}
+              onChange={() => onChange(answer)}
+            />
+            {label}
+          </label>
+        ))}
+      </div>
+      {error ? (
+        <p id={errorId} role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 

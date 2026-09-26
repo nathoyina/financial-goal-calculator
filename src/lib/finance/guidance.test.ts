@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculatePlan, estimateNotice, type PlanInput } from "./plan";
-import { DEFAULT_PLAN_FORM, parsePlanForm, skipDiscardNote, skipLabel, stepWouldDiscardEntries, validateStep } from "./plan-form";
+import { DEFAULT_PLAN_FORM, parsePlanForm, validateStep } from "./plan-form";
 import { parseDecimal } from "./parse";
 import {
   cpfLifeDollarYear,
@@ -158,28 +158,64 @@ describe("CPF LIFE in today's money", () => {
   });
 });
 
-describe("skip versus continue", () => {
-  it("names what the secondary button does and notices entries it would drop", () => {
-    expect(skipLabel(2)).toBe("I don't have a home loan");
-    expect(skipLabel(3)).toBe("Leave CPF out");
-    expect(skipLabel(4)).toBe("No children to plan for");
+describe("optional yes or no", () => {
+  const child = {
+    id: "child-1",
+    currentAge: "6",
+    startAge: "19",
+    years: "3",
+    yearlyCostToday: "12000",
+    path: "local" as const,
+  };
 
-    expect(stepWouldDiscardEntries(2, DEFAULT_PLAN_FORM)).toBe(false);
-    expect(stepWouldDiscardEntries(2, { ...DEFAULT_PLAN_FORM, hasLoan: true })).toBe(true);
-    expect(skipDiscardNote(2)).toBe("The home loan you entered won't be counted.");
+  it("requires a choice, and checks the fields only after Yes", () => {
+    expect(validateStep(2, DEFAULT_PLAN_FORM)).toEqual({
+      field: "loanAnswer",
+      message: "Choose Yes or No.",
+      reason: "missing",
+    });
+    expect(validateStep(2, { ...DEFAULT_PLAN_FORM, loanAnswer: "no", loanBalance: "" })).toBeNull();
+    expect(validateStep(2, { ...DEFAULT_PLAN_FORM, loanAnswer: "yes", loanBalance: "" })?.field).toBe("loanBalance");
 
-    expect(stepWouldDiscardEntries(3, DEFAULT_PLAN_FORM)).toBe(false);
-    expect(stepWouldDiscardEntries(3, { ...DEFAULT_PLAN_FORM, oa: "80000" })).toBe(true);
-    expect(skipDiscardNote(3)).toBe("The CPF balances you entered won't be counted.");
+    expect(validateStep(3, DEFAULT_PLAN_FORM)?.field).toBe("cpfAnswer");
+    expect(validateStep(3, { ...DEFAULT_PLAN_FORM, cpfAnswer: "no", oa: "" })).toBeNull();
+    expect(validateStep(3, { ...DEFAULT_PLAN_FORM, cpfAnswer: "yes" })).toBeNull();
 
-    expect(stepWouldDiscardEntries(4, DEFAULT_PLAN_FORM)).toBe(false);
-    expect(
-      stepWouldDiscardEntries(4, {
-        ...DEFAULT_PLAN_FORM,
-        children: [{ id: "child-1", currentAge: "6", startAge: "19", years: "3", yearlyCostToday: "12000", path: "local" }],
-      }),
-    ).toBe(true);
-    expect(skipDiscardNote(4)).toBe("The children you entered won't be counted.");
+    expect(validateStep(4, DEFAULT_PLAN_FORM)?.field).toBe("childrenAnswer");
+    expect(validateStep(4, { ...DEFAULT_PLAN_FORM, childrenAnswer: "yes" })?.message).toBe("Add a child, or choose No.");
+    expect(validateStep(4, { ...DEFAULT_PLAN_FORM, childrenAnswer: "no", children: [child] })).toBeNull();
+    expect(validateStep(4, { ...DEFAULT_PLAN_FORM, childrenAnswer: "yes", children: [child] })).toBeNull();
+  });
+
+  it("treats No as no loan, no CPF, and no children", () => {
+    const noLoan = parsePlanForm({
+      ...DEFAULT_PLAN_FORM,
+      loanAnswer: "no",
+      hasLoan: true,
+      loanBalance: "300000",
+    });
+    expect(noLoan.ok && noLoan.input.loan).toBeNull();
+
+    const noCpf = parsePlanForm({ ...DEFAULT_PLAN_FORM, cpfAnswer: "no", includeCpf: true });
+    expect(noCpf.ok && noCpf.input.includeCpf).toBe(false);
+
+    const noChildren = parsePlanForm({ ...DEFAULT_PLAN_FORM, childrenAnswer: "no", children: [child] });
+    expect(noChildren.ok && noChildren.input.children).toEqual([]);
+
+    const yesLoan = parsePlanForm({
+      ...DEFAULT_PLAN_FORM,
+      loanAnswer: "yes",
+      hasLoan: true,
+      loanBalance: "300000",
+      loanRate: "2.6",
+      loanYears: "20",
+    });
+    expect(yesLoan.ok && yesLoan.input.loan?.balance).toBe(300_000);
+
+    const unanswered = parsePlanForm(DEFAULT_PLAN_FORM);
+    expect(unanswered.ok && unanswered.input.includeCpf).toBe(true);
+    expect(unanswered.ok && unanswered.input.loan).toBeNull();
+    expect(unanswered.ok && unanswered.input.children).toEqual([]);
   });
 });
 
