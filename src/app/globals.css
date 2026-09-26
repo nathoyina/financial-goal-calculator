@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+:root {
+  --onyx: #0a0a0a;
+  --charcoal: #171717;
+  --yellow: #fde047;
+  --text: #fafafa;
+  --muted: #d4d4d4;
+  --border: #8d8d8d;
+  --danger: #fecaca;
+}
+
+@theme inline {
+  --color-onyx: var(--onyx);
+  --color-charcoal: var(--charcoal);
+  --color-yellow: var(--yellow);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-danger: var(--danger);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  color-scheme: dark;
+  background: var(--onyx);
+}
+
+body {
+  background: var(--onyx);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
+input:not([type="checkbox"]):focus-visible,
+select:focus-visible {
+  outline: none;
+}
+
+.wave-drift {
+  animation: wave-drift 9s ease-in-out infinite alternate;
+}
+
+@keyframes wave-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-28px, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wave-drift {
+    animation: none;
+  }
+}
+
+html[data-typing="true"] .wave-drift {
+  animation: none;
+}
+
+.glass {
+  background: rgb(23 23 23 / 0.78);
+  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
+  backdrop-filter: blur(16px);
+}
