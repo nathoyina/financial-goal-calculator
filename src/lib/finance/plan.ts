@@ -490,6 +490,26 @@ export function calculatePlan(input: PlanInput): PlanResult {
   };
 }
 
+/** Words for the verdict card. Null when no figure in the result is an estimate. */
+export function estimateNotice(result: Pick<PlanResult, "reliesOnEstimate" | "estimates" | "cohortYear">): string | null {
+  if (!result.reliesOnEstimate) return null;
+  const ids = new Set(result.estimates.map((note) => note.id));
+  const sentences = ["Part of this result depends on an estimate."];
+  if (ids.has("retirement-sum") && result.cohortYear > 2027) {
+    sentences.push("The retirement sum after 2027 is an assumption, not a published CPF figure.");
+  }
+  if (ids.has("cpf-life-payout")) {
+    sentences.push("The 2026 CPF LIFE payout ranges were not published, so that payout is an estimate.");
+  }
+  if (ids.has("escalating-plan-start")) {
+    sentences.push("The Escalating plan’s starting discount is an estimate and is not applied.");
+  }
+  if (ids.has("housing-accrued-interest")) {
+    sentences.push("The accrued-interest rate on housing withdrawals is an estimate and is not charged.");
+  }
+  return sentences.join(" ");
+}
+
 export function todayInstalment(loan: PlanLoan): number {
   if (loan.monthlyInstalment && loan.monthlyInstalment > 0) return loan.monthlyInstalment;
   return levelInstalment(loan.balance, loan.annualInterestRate, loan.remainingMonths);

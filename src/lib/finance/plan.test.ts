@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculatePlan, type PlanInput } from "./plan";
+import { calculatePlan, estimateNotice, type PlanInput } from "./plan";
 
 const base: PlanInput = {
   currentAge: 40,
@@ -161,5 +161,23 @@ describe("retirement plan", () => {
     expect(young.estimates.find((note) => note.id === "cpf-life-payout")?.explanation).toMatch(/2026 cohort ranges/);
     expect(young.estimates.some((note) => note.id === "escalating-plan-start")).toBe(true);
     expect(young.estimates.some((note) => note.id === "housing-accrued-interest")).toBe(true);
+    expect(estimateNotice(young)).toMatch(/depends on an estimate/);
+    expect(estimateNotice(young)).toMatch(/retirement sum after 2027 is an assumption/);
+    expect(estimateNotice(young)).toMatch(/2026 CPF LIFE payout ranges/);
+    expect(estimateNotice(young)).toMatch(/Escalating plan/);
+    expect(estimateNotice(young)).toMatch(/housing withdrawals/);
+
+    const published = calculatePlan({
+      ...base,
+      currentAge: 55,
+      retirementAge: 65,
+      lifeExpectancy: 90,
+      includeCpf: true,
+      cpf: { oa: 10_000, sa: 0, ra: 0, ma: 0, payoutAge: 65 },
+    });
+    expect(published.cohortYear).toBe(2026);
+    expect(published.retirementSumEstimated).toBe(false);
+    expect(estimateNotice(published)).not.toMatch(/after 2027/);
+    expect(estimateNotice(base)).toBeNull();
   });
 });

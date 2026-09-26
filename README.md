@@ -167,7 +167,7 @@ A real integration would need a government-approved business app on the Singpass
 
 ## Analytics
 
-`track(event, props)` in `src/lib/analytics/track.ts` records events in memory only. No SDK is installed. Amplitude can subscribe to the same helper later. The events are Landing Viewed, Calculator Started, Step Viewed, Step Completed, Step Skipped, Input Validation Error, Verdict Viewed, Gap Suggestion Applied, Inputs Adjusted After Verdict, and Estimate Info Opened. Step names are retirement age, income & expenses, housing loan, CPF, and education. Verdict properties are the outcome (on track or shortfall), a gap band, a retirement-age band, and flags for a housing loan, children, and whether the result relies on an estimate. Exact salaries, balances, and loan amounts are not recorded.
+`track(event, props)` in `src/lib/analytics/track.ts` records events in memory only. No SDK is installed. Amplitude can subscribe to the same helper later. The events are Landing Viewed, Calculator Started, Step Viewed, Step Completed, Step Skipped, Input Validation Error, Verdict Viewed, Gap Suggestion Applied, Inputs Adjusted After Verdict, and Estimate Info Opened. Step names are retirement age, income & expenses, housing loan, CPF, and education. Verdict Viewed includes `relies_on_estimate` (true or false), plus the outcome (on track or shortfall), a gap band, a retirement-age band, and flags for a housing loan and children. Estimate Info Opened includes the figure name only, such as “Retirement sum” or “Escalating plan”. Exact salaries, balances, and loan amounts are not recorded.
 
 ## Assumptions
 

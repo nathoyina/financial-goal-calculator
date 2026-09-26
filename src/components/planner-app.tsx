@@ -18,6 +18,7 @@ import {
   PLANNING_YEAR,
 } from "@/lib/cpf/constants";
 import { formatAge, formatMoney, formatPercent } from "@/lib/finance/format";
+import { estimateNotice } from "@/lib/finance/plan";
 import {
   DEFAULT_PLAN_FORM,
   parseDecimal,
@@ -420,6 +421,7 @@ function Verdict({
     );
   }
   const { input, result } = parsed;
+  const notice = estimateNotice(result);
   const gap = formatMoney(Math.abs(result.gap));
   const sentence = result.canRetire
     ? `Yes. You can retire at ${formatAge(input.retirementAge)}.`
@@ -437,11 +439,7 @@ function Verdict({
       <div className="glass p-5 sm:p-8">
         <h2 className="text-4xl font-extrabold tracking-tight text-balance text-yellow sm:text-5xl">{sentence}</h2>
         <p className="mt-3 text-base leading-7 text-white">{detail}</p>
-        {result.reliesOnEstimate ? (
-          <p className="mt-3 text-sm leading-6 text-muted">
-            Part of this result depends on an estimate. Each Estimate tag below names the figure, including a retirement sum after 2027 and anything CPF has not published. A tag that says the plan does not apply a figure means that number was left out on purpose.
-          </p>
-        ) : null}
+        {notice ? <p className="mt-3 text-sm leading-6 text-muted">{notice}</p> : null}
       </div>
 
       <dl className="grid gap-3 sm:grid-cols-2">
@@ -464,7 +462,7 @@ function Verdict({
               <EstimateTag
                 id="cpf-life-payout"
                 explanation={result.estimates.find((note) => note.id === "cpf-life-payout")?.explanation ?? "Estimated payout."}
-                onOpen={() => onOpenEstimate("cpf-life-payout")}
+                onOpen={() => onOpenEstimate("CPF LIFE payout")}
               />
             ) : null}
           </dt>
@@ -525,7 +523,7 @@ function Verdict({
           <div key={note.id} className="flex flex-col items-start gap-1">
             <div className="flex flex-wrap items-center gap-3">
               <p className="text-sm font-medium text-white">{note.title}</p>
-              <EstimateTag id={`${note.id}-assumption`} explanation={note.explanation} onOpen={() => onOpenEstimate(note.id)} />
+              <EstimateTag id={`${note.id}-assumption`} explanation={note.explanation} onOpen={() => onOpenEstimate(note.title)} />
             </div>
           </div>
         ))}

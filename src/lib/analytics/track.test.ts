@@ -34,6 +34,13 @@ describe("analytics", () => {
       relies_on_estimate: true,
     });
     expect(JSON.stringify(verdict.props)).not.toMatch(/220000|salary|balance|instalment/i);
+    expect(verdict.props.relies_on_estimate).toBe(true);
+
+    track("Estimate Info Opened", { figure: "Retirement sum" });
+    const opened = getTrackedEvents().at(-1);
+    expect(opened?.event).toBe("Estimate Info Opened");
+    expect(opened?.props).toEqual({ figure: "Retirement sum" });
+    expect(JSON.stringify(opened?.props)).not.toMatch(/\d{4,}|salary|balance/);
   });
 
   it("bands retirement ages and gaps", () => {
