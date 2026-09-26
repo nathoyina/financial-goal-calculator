@@ -141,7 +141,7 @@ export function validatePlanInput(input: PlanInput): string[] {
     [input.monthlyRetirementSpendingToday, "retirement spending"],
     [input.annualReturn, "annual return"],
     [input.annualInflation, "inflation"],
-    [input.extraMonthlySaving, "extra monthly saving"],
+    [input.extraMonthlySaving, "other income you'd save"],
   ];
   for (const [value, label] of numbers) {
     if (!finite(value)) errors.push(`Enter a number for ${label}.`);
@@ -165,7 +165,7 @@ export function validatePlanInput(input: PlanInput): string[] {
   if (input.monthlyIncome < 0) errors.push("Monthly income cannot be negative.");
   if (input.monthlyExpensesNow < 0) errors.push("Monthly expenses cannot be negative.");
   if (input.monthlyRetirementSpendingToday < 0) errors.push("Retirement spending cannot be negative.");
-  if (input.extraMonthlySaving < 0) errors.push("Extra monthly saving cannot be negative.");
+  if (input.extraMonthlySaving < 0) errors.push("Other income you'd save cannot be negative.");
   if (input.annualReturn <= -1) errors.push("Annual return has to be greater than −100%.");
   if (input.annualInflation <= -1) errors.push("Inflation has to be greater than −100%.");
   if (input.annualIncomeGrowth <= -1) errors.push("Income growth has to be greater than −100%.");

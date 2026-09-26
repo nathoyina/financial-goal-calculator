@@ -40,6 +40,32 @@ export function spendingExceedsTakeHome(
   return Math.round(input.monthlyExpensesNow - takeHomePay(input)) >= 1;
 }
 
+export interface MonthlySavingCard {
+  label: "Saved each month now" | "Short each month now";
+  /** Amount to show. The absolute value when spending is above take-home pay. */
+  displayAmount: number;
+  short: boolean;
+  explanation: string;
+}
+
+/** Words for the verdict card. A negative saving is a shortfall, shown without a minus sign. */
+export function monthlySavingCard(amount: number): MonthlySavingCard {
+  if (amount < 0) {
+    return {
+      label: "Short each month now",
+      displayAmount: Math.abs(amount),
+      short: true,
+      explanation: "Spending is more than take-home pay, after CPF, a cash loan, and other income you'd save.",
+    };
+  }
+  return {
+    label: "Saved each month now",
+    displayAmount: amount,
+    short: false,
+    explanation: "Income after CPF, minus spending and a cash loan, plus other income you'd save.",
+  };
+}
+
 /** The spending-step and verdict sentence. Null when spending is within take-home pay. */
 export function takeHomeExcessSentence(
   input: TakeHomeInput & { monthlyExpensesNow: number },

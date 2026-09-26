@@ -7,6 +7,7 @@ import {
   cpfLifeInTodaysMoney,
   displayedBalance,
   inTodaysMoney,
+  monthlySavingCard,
   projectedSalaryExceedsCeiling,
   savingsKeepGrowingSentence,
   spendingExceedsTakeHome,
@@ -94,6 +95,33 @@ describe("take-home pay", () => {
     expect(takeHomePay({ currentAge: 57, monthlyIncome: 8_000 })).toBe(6_560);
     expect(takeHomePay({ currentAge: 35, monthlyIncome: 6_000 })).toBe(4_800);
     expect(spendingExceedsTakeHome({ currentAge: 35, monthlyIncome: 6_000, monthlyExpensesNow: 5_000 })).toBe(true);
+  });
+});
+
+describe("saved each month card", () => {
+  it("calls a surplus saved, and a shortfall short, without a minus sign", () => {
+    const savedPlan = calculatePlan(base);
+    const saved = monthlySavingCard(savedPlan.monthlySavingToday);
+    expect(savedPlan.monthlySavingToday).toBeGreaterThan(0);
+    expect(saved.label).toBe("Saved each month now");
+    expect(saved.short).toBe(false);
+    expect(saved.displayAmount).toBe(savedPlan.monthlySavingToday);
+    expect(saved.explanation).toMatch(/other income you'd save/);
+
+    const shortPlan = calculatePlan({ ...base, monthlyExpensesNow: 5_000 });
+    const short = monthlySavingCard(shortPlan.monthlySavingToday);
+    expect(shortPlan.monthlySavingToday).toBeLessThan(0);
+    expect(short.label).toBe("Short each month now");
+    expect(short.short).toBe(true);
+    expect(short.displayAmount).toBe(Math.abs(shortPlan.monthlySavingToday));
+    expect(short.displayAmount).toBeGreaterThan(0);
+    expect(String(short.displayAmount)).not.toMatch(/^-/);
+    expect(short.explanation).toMatch(/more than take-home pay/);
+
+    const even = monthlySavingCard(0);
+    expect(even.label).toBe("Saved each month now");
+    expect(even.displayAmount).toBe(0);
+    expect(even.short).toBe(false);
   });
 });
 

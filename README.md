@@ -31,7 +31,7 @@ The form is five steps, then a verdict.
 | Step | What it collects |
 | --- | --- |
 | Retirement age | Current age, the age you want to stop work, and the age the plan should last until. Retirement can be 40 or 70. It only has to be after today and before the planning age. |
-| Income and expenses | Gross monthly income, optional income growth, monthly expenses now, retirement spending in today’s prices, cash savings, extra monthly saving, expected return, and inflation. Saving capacity is income minus employee CPF, expenses, and a cash loan, plus any extra you add. |
+| Income and expenses | Gross monthly income, optional income growth, monthly expenses now, retirement spending in today’s prices, cash savings, other income you'd save each month, expected return, and inflation. Saving capacity is income minus employee CPF, expenses, and a cash loan, plus that other income. |
 | Housing loan | Optional. Outstanding balance, your interest rate, years left, and whether you pay from the Ordinary Account or from cash. Leave the instalment blank to use the monthly-rest formula, or type the instalment you actually pay. |
 | CPF | Optional. Ordinary Account, Special Account, Retirement Account, and MediSave, plus the age you want CPF LIFE to start (65 to 70). |
 | Education | Optional. One or more children. Local, overseas, or other is a label only. You type the yearly cost. |
@@ -46,7 +46,7 @@ The verdict is one sentence: you can retire at that age, or you cannot.
 - **Projected cash.** Cash savings on that day, including Ordinary Account money moved into cash when that happens at retirement.
 - **Gap.** Projected cash minus the nest egg. Positive is a surplus. Negative is a shortfall.
 - **CPF LIFE payout.** A flat monthly estimate from the payout age, when CPF is included.
-- **Left to save today.** This month’s income minus employee CPF, spending, and a cash loan instalment, plus any extra saving.
+- **Saved each month now.** This month’s income minus employee CPF, spending, and a cash loan instalment, plus other income you'd save. When that is negative the card says “Short each month now” and shows the amount without a minus sign.
 - **If the plan fails.** The earliest later age that works, the extra monthly saving that closes the gap, or the retirement spending cut that does. Also the age cash runs out.
 - **Chart.** Cash balance through the working years and retirement, in today's money or future dollars. A marker shows Ordinary Account savings moved into cash.
 

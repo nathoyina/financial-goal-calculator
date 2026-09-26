@@ -23,6 +23,7 @@ import { formatAge, formatMoney, formatPercent } from "@/lib/finance/format";
 import {
   cpfLifeDollarYear,
   cpfLifeInTodaysMoney,
+  monthlySavingCard,
   savingsKeepGrowingSentence,
   spendingExceedsTakeHome,
   takeHomeExcessSentence,
@@ -310,7 +311,7 @@ export function PlannerApp() {
               ) : null}
               <NumberField id="expenses-later" label="Monthly spending in retirement" hint="Leave out your home loan. What you want to spend each month after you stop work, in today’s prices." value={form.monthlyRetirementSpendingToday} onChange={(value) => update({ monthlyRetirementSpendingToday: value })} prefix="S$" error={fieldError("monthlyRetirementSpendingToday")} />
               <NumberField id="cash" label="Cash savings" hint="Money outside CPF that you can invest and later spend." value={form.cashSavings} onChange={(value) => update({ cashSavings: value })} prefix="S$" error={fieldError("cashSavings")} />
-              <NumberField id="extra" label="Extra monthly saving" hint="On top of whatever income minus spending leaves. Start at 0." value={form.extraMonthlySaving} onChange={(value) => update({ extraMonthlySaving: value })} prefix="S$" error={fieldError("extraMonthlySaving")} />
+              <NumberField id="extra" label="Other income you'd save each month" hint="Side income, rental or bonuses. Your salary savings are already counted." value={form.extraMonthlySaving} onChange={(value) => update({ extraMonthlySaving: value })} prefix="S$" error={fieldError("extraMonthlySaving")} />
               <NumberField id="return" label="Expected annual return" hint="Nominal return on cash savings, before inflation." value={form.annualReturn} onChange={(value) => update({ annualReturn: value })} suffix="%" error={fieldError("annualReturn")} />
               <NumberField id="inflation" label="Expected inflation" hint="How fast prices, and your spending, rise each year." value={form.annualInflation} onChange={(value) => update({ annualInflation: value })} suffix="%" error={fieldError("annualInflation")} />
               {leftBeforeCpf !== null ? (
@@ -539,6 +540,7 @@ function Verdict({
     annualInflation: input.annualInflation,
     monthlyPayout: result.cpfLifeMonthly,
   });
+  const savingNow = monthlySavingCard(result.monthlySavingToday);
   const growthSentence = savingsKeepGrowingSentence({
     currentAge: input.currentAge,
     retirementAge: input.retirementAge,
@@ -619,9 +621,11 @@ function Verdict({
           </p>
         </div>
         <div className="glass p-5">
-          <dt className="text-sm text-muted">Left to save today</dt>
-          <dd className="mt-1 text-3xl font-bold tabular-nums tracking-tight">{formatMoney(result.monthlySavingToday)}</dd>
-          <p className="mt-2 text-sm leading-5 text-muted">Income minus CPF, spending, and a cash loan instalment, plus any extra you entered.</p>
+          <dt className="text-sm text-muted">{savingNow.label}</dt>
+          <dd className={`mt-1 text-3xl font-bold tabular-nums tracking-tight ${savingNow.short ? "text-yellow" : "text-white"}`}>
+            {formatMoney(savingNow.displayAmount)}
+          </dd>
+          <p className="mt-2 text-sm leading-5 text-muted">{savingNow.explanation}</p>
         </div>
       </dl>
 
