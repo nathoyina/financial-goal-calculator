@@ -238,7 +238,7 @@ function simulate(input: PlanInput): Simulation {
       id: "cpf-life-payout",
       title: "CPF LIFE payout",
       explanation:
-        "Scaled from CPF’s 2026 illustrative Standard-plan payouts for a male member, not a personal quote from the CPF LIFE estimator. The payout is kept flat in dollar terms. The Escalating plan is not modelled.",
+        "Scaled from CPF’s 2026 illustrative Standard-plan payouts for a male member, not a personal quote from the CPF LIFE estimator. The payout is kept flat in dollar terms. The Escalating plan is not modelled. If payouts start while you are still working, they are added to cash. A member who is already 65 or older is estimated from the Retirement Account entered today, with deferral only for years still ahead.",
     });
     estimates.push({
       id: "cpf-interest",
@@ -337,7 +337,8 @@ function simulate(input: PlanInput): Simulation {
       educationCost -
       cashLoan -
       oaShortfall +
-      input.extraMonthlySaving;
+      input.extraMonthlySaving +
+      cpfLife;
     const grown = balance * (1 + monthlyReturn);
     if (net < 0 && grown + net < -EPS) {
       moneyRunsOutAge = ageAt(month + 1);
@@ -361,8 +362,14 @@ function simulate(input: PlanInput): Simulation {
 
   const firstLoan = input.loan?.paidFrom === "cash" ? (schedule[0]?.payment ?? 0) : 0;
   const employeeNow = input.includeCpf ? monthlyContributions(input.currentAge, input.monthlyIncome).employee : 0;
+  const lifeAlreadyPaying = cpf?.payoutStartMonth === 0 ? cpf.monthlyPayout : 0;
   const monthlySavingToday =
-    input.monthlyIncome - employeeNow - input.monthlyExpensesNow - firstLoan + input.extraMonthlySaving;
+    input.monthlyIncome -
+    employeeNow -
+    input.monthlyExpensesNow -
+    firstLoan +
+    input.extraMonthlySaving +
+    lifeAlreadyPaying;
 
   return {
     moneyRunsOutAge,

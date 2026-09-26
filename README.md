@@ -65,7 +65,7 @@ i = (1+r)^{1/12} - 1
 While you are working, cash grows, then this month’s net is applied at month end. Net cash is
 
 \[
-\text{wage} - \text{employee CPF} - \text{expenses}\times(1+f)^{m/12} - \text{education} - \text{cash loan} - \text{OA shortfall} + \text{extra saving}
+\text{wage} + \text{CPF LIFE already paying} - \text{employee CPF} - \text{expenses}\times(1+f)^{m/12} - \text{education} - \text{cash loan} - \text{OA shortfall} + \text{extra saving}
 \]
 
 Expenses rise with inflation. Income steps up once a year by the growth rate you enter. If a month would take cash below zero, savings are exhausted at that age.
@@ -98,7 +98,7 @@ At a zero rate the instalment is \(P / n\). A typed instalment replaces the form
 
 ### Education
 
-Each study year costs the yearly amount you enter, inflated from today, and is withdrawn from cash at the start of that year. Years that would already have started are skipped. The local or overseas label does not change the number.
+Each study year costs the yearly amount you enter, inflated from today, and is withdrawn from cash at the start of that year. One year is a lump sum. Several years are a course. Years that would already have started are skipped. The local or overseas label does not fill in a fee. You type the cost.
 
 ### CPF
 
@@ -127,6 +127,8 @@ CPF LIFE uses the Standard plan only. Payouts are interpolated from CPF’s 2026
 Cohorts turning 55 after 2027 reuse the 2027 retirement sums and are labelled estimates. Interest rates are the 2026 floors, held flat for the whole projection, and labelled estimates. MediSave is not spent on living costs.
 
 Ordinary Account savings move into spendable cash at retirement, or at 55 if you retire earlier, unless an Ordinary Account loan still has payments after retirement. In that case the account stays put to keep paying the loan.
+
+CPF LIFE that starts before retirement, which is what happens if you keep working past the payout age, is added to cash each month. There is no upper limit on the retirement age itself. A member who is already 65 or older has no age-65 snapshot in this plan, so the payout is estimated from the Retirement Account they enter, and the “up to 7%” deferral is applied only for years still ahead. The CPF monthly payout estimator is the logged-in tool for a personal quote. CPF points members under 55 to the Retirement Payout Planner instead. This app projects the balance forward and labels the result an estimate. MoneyOwl’s retirement planner asks the same kinds of questions, salary and saving, cash, and CPF balances, then shows whether the plan works. This screen uses its own layout and its own maths.
 
 ### Feasibility
 

@@ -120,6 +120,30 @@ describe("retirement plan", () => {
     expect(result.gap).toBeCloseTo(result.projectedCashAtRetirement - result.nestEggNeeded, 4);
   });
 
+  it("keeps CPF LIFE that starts before a late retirement", () => {
+    const result = calculatePlan({
+      currentAge: 70,
+      retirementAge: 75,
+      lifeExpectancy: 77,
+      cashSavings: 0,
+      monthlyIncome: 0,
+      annualIncomeGrowth: 0,
+      monthlyExpensesNow: 0,
+      monthlyRetirementSpendingToday: 2_000,
+      annualReturn: 0,
+      annualInflation: 0,
+      extraMonthlySaving: 0,
+      includeCpf: true,
+      cpf: { oa: 0, sa: 0, ra: 170_200, ma: 0, payoutAge: 65 },
+      loan: null,
+      children: [],
+    });
+    expect(result.valid).toBe(true);
+    expect(result.cpfLifeMonthly).toBeCloseTo(950, 6);
+    expect(result.projectedCashAtRetirement).toBeCloseTo(950 * 12 * 5, 0);
+    expect(result.canRetire).toBe(true);
+  });
+
   it("labels retirement sums after 2027 as estimates", () => {
     const young = calculatePlan({
       ...base,

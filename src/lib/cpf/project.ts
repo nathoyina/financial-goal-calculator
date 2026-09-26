@@ -277,14 +277,24 @@ export function projectCpf(input: CpfProjectionInput): CpfProjection {
       payout = estimateStandardPayout(raAt65) * (1 + CPF_LIFE_DEFERRAL.perYear) ** deferralYears;
     }
 
+    // Someone who is already 65 or older has no age-65 snapshot in this plan.
+    // Use the Retirement Account they enter today, and apply deferral only for years still ahead.
+    if (month === 0 && input.currentAge >= 65 && payout === 0) {
+      raAt65 = current.ra;
+      const yearsAhead = Math.max(0, payoutAge - input.currentAge);
+      payout = estimateStandardPayout(raAt65) * (1 + CPF_LIFE_DEFERRAL.perYear) ** yearsAhead;
+      saw65 = true;
+    }
+
     if (payoutStartMonth === null && age >= payoutAge) {
       payoutStartMonth = month;
-      if (!saw65) {
+      if (payout === 0) {
         raAt65 = current.ra;
         payout = estimateStandardPayout(current.ra);
         saw65 = true;
       }
       current.ra = 0;
+      accrued.ra = 0;
     }
 
     push();

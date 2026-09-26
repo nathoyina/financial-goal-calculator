@@ -57,6 +57,19 @@ describe("CPF projection", () => {
     expect(estimateStandardPayout(85_100)).toBeCloseTo(475, 6);
   });
 
+  it("estimates CPF LIFE for a member who is already past 65", () => {
+    const result = projectCpf({
+      currentAge: 70,
+      months: 1,
+      initial: { oa: 0, sa: 0, ra: 170_200, ma: 0 },
+      wageAtMonth: () => 0,
+      payoutAge: 65,
+    });
+    expect(result.monthlyPayout).toBeCloseTo(950, 6);
+    expect(result.payoutStartMonth).toBe(0);
+    expect(result.balances[0].ra).toBe(0);
+  });
+
   it("lets an OA housing payment reduce OA, and reports what OA cannot cover", () => {
     const result = projectCpf({
       currentAge: 40,
