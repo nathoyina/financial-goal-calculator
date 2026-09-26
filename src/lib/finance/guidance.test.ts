@@ -163,20 +163,16 @@ describe("optional yes or no", () => {
     path: "local" as const,
   };
 
-  it("requires a choice, and checks the fields only after Yes", () => {
-    expect(validateStep(2, DEFAULT_PLAN_FORM)).toEqual({
-      field: "loanAnswer",
-      message: "Choose Yes or No.",
-      reason: "missing",
-    });
+  it("checks the fields only after Yes", () => {
+    expect(validateStep(2, DEFAULT_PLAN_FORM)).toBeNull();
     expect(validateStep(2, { ...DEFAULT_PLAN_FORM, loanAnswer: "no", loanBalance: "" })).toBeNull();
     expect(validateStep(2, { ...DEFAULT_PLAN_FORM, loanAnswer: "yes", loanBalance: "" })?.field).toBe("loanBalance");
 
-    expect(validateStep(3, DEFAULT_PLAN_FORM)?.field).toBe("cpfAnswer");
+    expect(validateStep(3, DEFAULT_PLAN_FORM)).toBeNull();
     expect(validateStep(3, { ...DEFAULT_PLAN_FORM, cpfAnswer: "no", oa: "" })).toBeNull();
     expect(validateStep(3, { ...DEFAULT_PLAN_FORM, cpfAnswer: "yes" })).toBeNull();
 
-    expect(validateStep(4, DEFAULT_PLAN_FORM)?.field).toBe("childrenAnswer");
+    expect(validateStep(4, DEFAULT_PLAN_FORM)).toBeNull();
     expect(validateStep(4, { ...DEFAULT_PLAN_FORM, childrenAnswer: "yes" })?.message).toBe("Add a child, or choose No.");
     expect(validateStep(4, { ...DEFAULT_PLAN_FORM, childrenAnswer: "no", children: [child] })).toBeNull();
     expect(validateStep(4, { ...DEFAULT_PLAN_FORM, childrenAnswer: "yes", children: [child] })).toBeNull();

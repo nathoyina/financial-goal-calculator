@@ -27,6 +27,7 @@ import {
   takeHomeExcessSentence,
   yearsUntilRetirementLine,
 } from "@/lib/finance/guidance";
+import { chooseOptionalAnswer, showsContinue } from "@/lib/finance/optional-step";
 import { estimateNotice } from "@/lib/finance/plan";
 import {
   DEFAULT_PLAN_FORM,
@@ -55,8 +56,6 @@ const FIELD_IDS: Record<string, string> = {
   extraMonthlySaving: "extra",
   annualReturn: "return",
   annualInflation: "inflation",
-  cpfAnswer: HEADING_ID,
-  loanAnswer: HEADING_ID,
   loanBalance: "loan-balance",
   loanRate: "loan-rate",
   loanYears: "loan-years",
@@ -66,7 +65,6 @@ const FIELD_IDS: Record<string, string> = {
   ra: "ra",
   ma: "ma",
   payoutAge: "payout-age",
-  childrenAnswer: HEADING_ID,
   addChild: "add-child",
 };
 
@@ -163,9 +161,24 @@ export function PlannerApp() {
   };
 
   const fieldError = (field: string) => (error?.field === field ? error.message : undefined);
+  const noAdvanceLock = useRef(false);
 
-  const choiceDescribedBy = (field: string, errorId: string) =>
-    fieldError(field) ? { "aria-invalid": true as const, "aria-describedby": errorId } : {};
+  const pickOptional = (answer: "yes" | "no") => {
+    if (answer === "no") {
+      if (noAdvanceLock.current) return;
+      noAdvanceLock.current = true;
+      queueMicrotask(() => {
+        noAdvanceLock.current = false;
+      });
+    }
+    const choice = chooseOptionalAnswer(step, form, answer);
+    update(choice.form);
+    if (choice.completed && choice.nextStep !== null) {
+      track("Step Completed", choice.completed);
+      setStep(choice.nextStep);
+      requestHeadingFocus();
+    }
+  };
 
   const goNext = () => {
     if (!started.current) {
@@ -174,6 +187,7 @@ export function PlannerApp() {
     }
     const answer =
       step === 2 ? form.loanAnswer : step === 3 ? form.cpfAnswer : step === 4 ? form.childrenAnswer : null;
+    if (step >= 2 && step <= 4 && answer !== "yes") return;
     const problem = validateStep(step, form);
     if (problem) {
       track("Input Validation Error", { field: problem.field, reason: problem.reason });
@@ -182,7 +196,7 @@ export function PlannerApp() {
     }
     const stepName = STEP_NAMES[step];
     if (stepName) {
-      track("Step Completed", stepCompletedProps(stepName, answer === "yes" || answer === "no" ? answer : undefined));
+      track("Step Completed", stepCompletedProps(stepName, answer === "yes" ? "yes" : undefined));
     }
     setStep((current) => current + 1);
     requestHeadingFocus();
@@ -305,7 +319,7 @@ export function PlannerApp() {
 
           {step === 2 ? (
             <section className="flex flex-col gap-4">
-              <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none" {...choiceDescribedBy("loanAnswer", "loan-choice-error")}>
+              <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
                 Are you still paying a home loan?
               </h2>
               <YesNoChoice
@@ -314,8 +328,7 @@ export function PlannerApp() {
                 yesId="loan-yes"
                 noId="loan-no"
                 labelledBy={HEADING_ID}
-                error={fieldError("loanAnswer")}
-                onChange={(answer) => update({ loanAnswer: answer, hasLoan: answer === "yes" })}
+                onChange={pickOptional}
               />
               {form.loanAnswer === "yes" ? (
                 <>
@@ -341,7 +354,7 @@ export function PlannerApp() {
 
           {step === 3 ? (
             <section className="flex flex-col gap-4">
-              <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none" {...choiceDescribedBy("cpfAnswer", "cpf-choice-error")}>
+              <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
                 Add your CPF balances to the plan?
               </h2>
               <p id="cpf-choice-hint" className="text-sm leading-5 text-muted">
@@ -354,8 +367,7 @@ export function PlannerApp() {
                 noId="cpf-no"
                 labelledBy={HEADING_ID}
                 hintId="cpf-choice-hint"
-                error={fieldError("cpfAnswer")}
-                onChange={(answer) => update({ cpfAnswer: answer, includeCpf: answer === "yes" })}
+                onChange={pickOptional}
               />
               {form.cpfAnswer === "yes" ? (
                 <>
@@ -375,7 +387,7 @@ export function PlannerApp() {
 
           {step === 4 ? (
             <section className="flex flex-col gap-4">
-              <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none" {...choiceDescribedBy("childrenAnswer", "children-choice-error")}>
+              <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
                 Planning for children&apos;s education?
               </h2>
               <YesNoChoice
@@ -384,8 +396,7 @@ export function PlannerApp() {
                 yesId="children-yes"
                 noId="children-no"
                 labelledBy={HEADING_ID}
-                error={fieldError("childrenAnswer")}
-                onChange={(answer) => update({ childrenAnswer: answer })}
+                onChange={pickOptional}
               />
               {form.childrenAnswer === "yes" ? (
                 <>
@@ -468,7 +479,7 @@ export function PlannerApp() {
                 Back
               </button>
             ) : null}
-            {step < VERDICT ? (
+            {showsContinue(step, form) ? (
               <button type="button" className="pill pill-shout" onClick={goNext}>
                 {step === 4 ? "See the verdict" : "Continue"}
               </button>
@@ -665,7 +676,6 @@ function YesNoChoice({
   noId,
   labelledBy,
   hintId,
-  error,
   onChange,
 }: {
   name: string;
@@ -674,13 +684,10 @@ function YesNoChoice({
   noId: string;
   labelledBy: string;
   hintId?: string;
-  error?: string;
   onChange: (answer: "yes" | "no") => void;
 }) {
   const yesRef = useRef<HTMLInputElement>(null);
   const keepYesFocus = useRef(false);
-  const errorId = `${name}-choice-error`;
-  const describedBy = [hintId, error ? errorId : null].filter(Boolean).join(" ") || undefined;
 
   useLayoutEffect(() => {
     if (!keepYesFocus.current) return;
@@ -688,15 +695,14 @@ function YesNoChoice({
     yesRef.current?.focus();
   }, [value]);
 
+  const pick = (answer: "yes" | "no") => {
+    if (answer === "yes") keepYesFocus.current = true;
+    onChange(answer);
+  };
+
   return (
     <div className="flex flex-col gap-3">
-      <div
-        role="radiogroup"
-        aria-labelledby={labelledBy}
-        aria-invalid={error ? true : undefined}
-        aria-describedby={describedBy}
-        className="flex flex-wrap gap-3"
-      >
+      <div role="radiogroup" aria-labelledby={labelledBy} aria-describedby={hintId} className="flex flex-wrap gap-3">
         {(
           [
             ["yes", "Yes", yesId],
@@ -712,20 +718,21 @@ function YesNoChoice({
               name={name}
               value={answer}
               checked={value === answer}
-              onChange={() => {
-                if (answer === "yes") keepYesFocus.current = true;
-                onChange(answer);
+              onChange={() => pick(answer)}
+              onClick={() => {
+                if (answer === "no" && value === "no") pick("no");
+              }}
+              onKeyDown={(event) => {
+                if (answer === "no" && value === "no" && (event.key === "Enter" || event.key === " ")) {
+                  event.preventDefault();
+                  pick("no");
+                }
               }}
             />
             {label}
           </label>
         ))}
       </div>
-      {error ? (
-        <p id={errorId} className="text-sm leading-5 text-danger">
-          {error}
-        </p>
-      ) : null}
     </div>
   );
 }

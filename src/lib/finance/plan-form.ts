@@ -78,16 +78,6 @@ export const DEFAULT_PLAN_FORM: PlanFormState = {
   children: [],
 };
 
-const CHOOSE_YES_OR_NO: FieldError = {
-  field: "",
-  message: "Choose Yes or No.",
-  reason: "missing",
-};
-
-function choiceError(field: string): FieldError {
-  return { ...CHOOSE_YES_OR_NO, field };
-}
-
 export type ValidationReason = "missing" | "format" | "out-of-range";
 
 export interface FieldError {
@@ -150,42 +140,34 @@ export function validateStep(step: number, form: PlanFormState): FieldError | nu
       if (isFieldError(value)) return value;
     }
   }
-  if (step === 2) {
-    if (form.loanAnswer === null) return choiceError("loanAnswer");
-    if (form.loanAnswer === "yes") {
-      const balance = readNumber(form.loanBalance, "loanBalance", "the loan balance");
-      if (isFieldError(balance)) return balance;
-      const rate = readNumber(form.loanRate, "loanRate", "the loan interest rate");
-      if (isFieldError(rate)) return rate;
-      const years = readNumber(form.loanYears, "loanYears", "how many years are left");
-      if (isFieldError(years)) return years;
-      if (form.loanInstalment.trim() !== "") {
-        const instalment = readNumber(form.loanInstalment, "loanInstalment", "the instalment");
-        if (isFieldError(instalment)) {
-          return { field: "loanInstalment", message: "Enter a number for the instalment, or leave it blank.", reason: instalment.reason };
-        }
+  if (step === 2 && form.loanAnswer === "yes") {
+    const balance = readNumber(form.loanBalance, "loanBalance", "the loan balance");
+    if (isFieldError(balance)) return balance;
+    const rate = readNumber(form.loanRate, "loanRate", "the loan interest rate");
+    if (isFieldError(rate)) return rate;
+    const years = readNumber(form.loanYears, "loanYears", "how many years are left");
+    if (isFieldError(years)) return years;
+    if (form.loanInstalment.trim() !== "") {
+      const instalment = readNumber(form.loanInstalment, "loanInstalment", "the instalment");
+      if (isFieldError(instalment)) {
+        return { field: "loanInstalment", message: "Enter a number for the instalment, or leave it blank.", reason: instalment.reason };
       }
     }
   }
-  if (step === 3) {
-    if (form.cpfAnswer === null) return choiceError("cpfAnswer");
-    if (form.cpfAnswer === "yes") {
-      const fields: [keyof PlanFormState, string][] = [
-        ["oa", "Ordinary Account"],
-        ["sa", "Special Account"],
-        ["ra", "Retirement Account"],
-        ["ma", "MediSave"],
-        ["payoutAge", "CPF LIFE payout age"],
-      ];
-      for (const [key, label] of fields) {
-        const value = readNumber(String(form[key]), key, label);
-        if (isFieldError(value)) return value;
-      }
+  if (step === 3 && form.cpfAnswer === "yes") {
+    const fields: [keyof PlanFormState, string][] = [
+      ["oa", "Ordinary Account"],
+      ["sa", "Special Account"],
+      ["ra", "Retirement Account"],
+      ["ma", "MediSave"],
+      ["payoutAge", "CPF LIFE payout age"],
+    ];
+    for (const [key, label] of fields) {
+      const value = readNumber(String(form[key]), key, label);
+      if (isFieldError(value)) return value;
     }
   }
-  if (step === 4) {
-    if (form.childrenAnswer === null) return choiceError("childrenAnswer");
-    if (form.childrenAnswer === "no") return null;
+  if (step === 4 && form.childrenAnswer === "yes") {
     if (form.children.length === 0) {
       return { field: "addChild", message: "Add a child, or choose No.", reason: "missing" };
     }
