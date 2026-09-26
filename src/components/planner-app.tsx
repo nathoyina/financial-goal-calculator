@@ -437,7 +437,6 @@ export function PlannerApp() {
                     })
                   }
                   onRemove={() => update({ children: form.children.filter((item) => item.id !== child.id) })}
-                  onOpenEstimate={(figure) => track("Estimate Info Opened", { figure })}
                 />
               ))}
               <button
@@ -466,7 +465,6 @@ export function PlannerApp() {
               parsed={parsed}
               form={form}
               onApply={update}
-              onOpenEstimate={(figure) => track("Estimate Info Opened", { figure })}
             />
           ) : null}
 
@@ -500,12 +498,10 @@ function Verdict({
   form,
   parsed,
   onApply,
-  onOpenEstimate,
 }: {
   form: PlanFormState;
   parsed: ReturnType<typeof parsePlanForm> | null;
   onApply: (patch: Partial<PlanFormState>, source?: "user" | "suggestion") => void;
-  onOpenEstimate: (figure: string) => void;
 }) {
   if (!parsed || !parsed.ok) {
     return (
@@ -589,13 +585,7 @@ function Verdict({
         <div className="glass p-5">
           <dt className="flex flex-wrap items-center gap-2 text-sm text-muted">
             CPF LIFE payout
-            {input.includeCpf ? (
-              <EstimateTag
-                id="cpf-life-payout"
-                explanation={result.estimates.find((note) => note.id === "cpf-life-payout")?.explanation ?? "Estimated payout."}
-                onOpen={() => onOpenEstimate("CPF LIFE payout")}
-              />
-            ) : null}
+            {input.includeCpf ? <EstimateTag /> : null}
           </dt>
           <dd className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
             {input.includeCpf ? `${formatMoney(result.cpfLifeMonthly)} / mo` : "Not included"}
@@ -667,7 +657,7 @@ function Verdict({
           <div key={note.id} className="flex flex-col items-start gap-1">
             <div className="flex flex-wrap items-center gap-3">
               <p className="text-sm font-medium text-white">{note.title}</p>
-              <EstimateTag id={`${note.id}-assumption`} explanation={note.explanation} onOpen={() => onOpenEstimate(note.title)} />
+              <EstimateTag />
             </div>
           </div>
         ))}

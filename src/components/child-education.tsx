@@ -10,8 +10,6 @@ import {
   blurEducationFigure,
   draftEducationFigure,
   educationTotalCopy,
-  presetEstimateExplanation,
-  presetEstimateFigure,
   pressEducationChoice,
   type EducationChoice,
   type OverseasPresetId,
@@ -55,7 +53,6 @@ export function ChildEducationCard({
   fieldError,
   onChild,
   onRemove,
-  onOpenEstimate,
 }: {
   child: ChildForm;
   index: number;
@@ -64,7 +61,6 @@ export function ChildEducationCard({
   fieldError: (field: string) => string | undefined;
   onChild: (child: ChildForm) => void;
   onRemove: () => void;
-  onOpenEstimate: (figure: string) => void;
 }) {
   const studyLabelId = `study-label-${child.id}`;
   const studyHintId = `study-hint-${child.id}`;
@@ -75,14 +71,7 @@ export function ChildEducationCard({
   const overseasGroupId = `overseas-${child.id}`;
   const preset = activePresetId(child);
   const total = educationTotalCopy(child);
-  const estimateTag = (slot: "years" | "cost") =>
-    preset ? (
-      <EstimateTag
-        id={`edu-estimate-${slot}-${child.id}`}
-        explanation={presetEstimateExplanation(preset)}
-        onOpen={() => onOpenEstimate(presetEstimateFigure(preset))}
-      />
-    ) : null;
+  const estimateTag = () => (preset ? <EstimateTag /> : null);
 
   const selectStudy = (choice: EducationChoice, activation: string) => {
     const next = pressEducationChoice({
@@ -222,7 +211,7 @@ export function ChildEducationCard({
         suffix="years"
         error={fieldError("childYears")}
         describedByExtra={studyHintId}
-        labelAddon={estimateTag("years")}
+        labelAddon={estimateTag()}
       />
       <NumberField
         id={`child-cost-${child.id}`}
@@ -234,7 +223,7 @@ export function ChildEducationCard({
         prefix="S$"
         error={fieldError("childCost")}
         describedByExtra={studyHintId}
-        labelAddon={estimateTag("cost")}
+        labelAddon={estimateTag()}
       />
       {total ? (
         <p className="text-sm leading-6 text-white">
