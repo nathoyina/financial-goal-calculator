@@ -23,6 +23,7 @@ describe("analytics", () => {
         hasChildren: false,
         reliesOnEstimate: true,
         isFirstVerdict: true,
+        spendingExceedsTakeHome: true,
       }),
     );
     const verdict = getTrackedEvents()[1];
@@ -35,6 +36,7 @@ describe("analytics", () => {
       has_children: false,
       relies_on_estimate: true,
       is_first_verdict: true,
+      spending_exceeds_take_home: true,
     });
     expect(verdictAnalyticsProps({
       outcome: "on-track",
@@ -44,6 +46,7 @@ describe("analytics", () => {
       hasChildren: false,
       reliesOnEstimate: false,
       isFirstVerdict: false,
+      spendingExceedsTakeHome: false,
     }).is_first_verdict).toBe(false);
     expect(JSON.stringify(verdict.props)).not.toMatch(/220000|salary|balance|instalment/i);
     expect(verdict.props.relies_on_estimate).toBe(true);

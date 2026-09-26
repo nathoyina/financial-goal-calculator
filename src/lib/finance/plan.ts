@@ -4,6 +4,7 @@ import {
   CPF_INTEREST,
   CPF_LIFE_DEFERRAL,
   CPF_LIFE_FRS_FROM_70,
+  CPF_WAGE,
   RETIREMENT_SUM_GROWTH_ASSUMPTION,
   UNVERIFIED_CPF_ITEMS,
   calendarYearAtMonth,
@@ -12,7 +13,8 @@ import {
 } from "../cpf/constants";
 import { educationByMonth, educationWithdrawals, type ChildEducation } from "./education";
 import { amortisationSchedule, levelInstalment, type LoanInput } from "./loan";
-import { formatPercent } from "./format";
+import { formatMoney, formatPercent } from "./format";
+import { projectedSalaryExceedsCeiling } from "./guidance";
 import { monthlyRate } from "./rates";
 
 export interface PlanLoan extends LoanInput {
@@ -61,6 +63,10 @@ export interface PlanResult {
   extraMonthlySaving: number | null;
   /** How much to lower retirement spending, in today's prices. Null when spending cuts cannot fix it. */
   spendingCutToday: number | null;
+  /** How much to lower today's spending. Null when that cut cannot make the plan last. */
+  spendingCutNow: number | null;
+  /** Projected salary rises above the ordinary wage ceiling, which this plan holds flat. */
+  salaryCapApplies: boolean;
   earliestRetirementAge: number | null;
   moneyRunsOutAge: number | null;
   endingBalance: number;
@@ -101,6 +107,8 @@ function invalid(errors: string[]): PlanResult {
     cpfLifeMonthly: 0,
     extraMonthlySaving: null,
     spendingCutToday: null,
+    spendingCutNow: null,
+    salaryCapApplies: false,
     earliestRetirementAge: null,
     moneyRunsOutAge: null,
     endingBalance: 0,
@@ -463,6 +471,20 @@ function spendingCut(input: PlanInput): number | null {
   return input.monthlyRetirementSpendingToday - low;
 }
 
+function spendingCutNow(input: PlanInput): number | null {
+  const affordable = (spending: number) => !fails(simulate({ ...input, monthlyExpensesNow: spending }));
+  if (affordable(input.monthlyExpensesNow)) return 0;
+  if (!affordable(0)) return null;
+  let low = 0;
+  let high = input.monthlyExpensesNow;
+  for (let step = 0; step < 22; step += 1) {
+    const mid = (low + high) / 2;
+    if (affordable(mid)) low = mid;
+    else high = mid;
+  }
+  return input.monthlyExpensesNow - low;
+}
+
 function earliestAge(input: PlanInput): number | null {
   const first = Math.floor(input.currentAge) + 1;
   const last = Math.ceil(input.lifeExpectancy) - 1;
@@ -491,6 +513,8 @@ export function calculatePlan(input: PlanInput): PlanResult {
     cpfLifeMonthly: base.cpfLifeMonthly,
     extraMonthlySaving: canRetire ? 0 : minimumExtra(input),
     spendingCutToday: canRetire ? 0 : spendingCut(input),
+    spendingCutNow: canRetire ? 0 : spendingCutNow(input),
+    salaryCapApplies: projectedSalaryExceedsCeiling(input),
     earliestRetirementAge: canRetire ? null : earliestAge(input),
     moneyRunsOutAge: base.moneyRunsOutAge,
     endingBalance: base.endingBalance,
@@ -505,24 +529,34 @@ export function calculatePlan(input: PlanInput): PlanResult {
 }
 
 /** Words for the verdict card. Null when no figure in the result is an estimate. */
-export function estimateNotice(result: Pick<PlanResult, "reliesOnEstimate" | "estimates" | "cohortYear">): string | null {
-  if (!result.reliesOnEstimate) return null;
+export function estimateNotice(
+  result: Pick<PlanResult, "reliesOnEstimate" | "estimates" | "cohortYear" | "salaryCapApplies">,
+): string | null {
+  if (!result.reliesOnEstimate && !result.salaryCapApplies) return null;
   const ids = new Set(result.estimates.map((note) => note.id));
-  const sentences = ["Part of this result depends on an estimate."];
-  if (ids.has("retirement-sum") && result.cohortYear > 2027) {
-    sentences.push("The retirement sum after 2027 is an assumption, not a published CPF figure.");
+  const sentences: string[] = [];
+  if (result.reliesOnEstimate) {
+    sentences.push("Part of this result depends on an estimate.");
+    if (ids.has("retirement-sum") && result.cohortYear > 2027) {
+      sentences.push("The retirement sum after 2027 is an assumption, not a published CPF figure.");
+    }
+    if (ids.has("retirement-sum") && result.cohortYear < 2017) {
+      sentences.push("The retirement sum for this cohort uses the 2017 figures, the earliest official year cited here.");
+    }
+    if (ids.has("retirement-sum") && result.cohortYear === 2021) {
+      sentences.push("The 2021 retirement sum comes from news coverage, so it is labelled an estimate.");
+    }
+    if (ids.has("cpf-life-payout")) {
+      sentences.push("The 2026 CPF LIFE payout ranges were not published, so that payout is an estimate.");
+    }
+    if (ids.has("basic-healthcare-sum")) {
+      sentences.push("The Basic Healthcare Sum after 2026 is not published, so extra MediSave is not moved into the Retirement Account in those years.");
+    }
   }
-  if (ids.has("retirement-sum") && result.cohortYear < 2017) {
-    sentences.push("The retirement sum for this cohort uses the 2017 figures, the earliest official year cited here.");
-  }
-  if (ids.has("retirement-sum") && result.cohortYear === 2021) {
-    sentences.push("The 2021 retirement sum comes from news coverage, so it is labelled an estimate.");
-  }
-  if (ids.has("cpf-life-payout")) {
-    sentences.push("The 2026 CPF LIFE payout ranges were not published, so that payout is an estimate.");
-  }
-  if (ids.has("basic-healthcare-sum")) {
-    sentences.push("The Basic Healthcare Sum after 2026 is not published, so extra MediSave is not moved into the Retirement Account in those years.");
+  if (result.salaryCapApplies) {
+    sentences.push(
+      `The CPF salary cap after ${CPF_WAGE.ordinaryCeiling.year} is assumed to stay at ${formatMoney(CPF_WAGE.ordinaryCeiling.value)}.`,
+    );
   }
   return sentences.join(" ");
 }

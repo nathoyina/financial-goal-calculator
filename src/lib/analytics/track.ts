@@ -58,6 +58,8 @@ export function verdictAnalyticsProps(input: {
   reliesOnEstimate: boolean;
   /** True only for the first verdict of this browser session. */
   isFirstVerdict: boolean;
+  /** Today's spending is above take-home pay. No amounts are recorded. */
+  spendingExceedsTakeHome: boolean;
 }): Record<string, string | number | boolean> {
   return {
     outcome: input.outcome,
@@ -67,6 +69,7 @@ export function verdictAnalyticsProps(input: {
     has_children: input.hasChildren,
     relies_on_estimate: input.reliesOnEstimate,
     is_first_verdict: input.isFirstVerdict,
+    spending_exceeds_take_home: input.spendingExceedsTakeHome,
   };
 }
 

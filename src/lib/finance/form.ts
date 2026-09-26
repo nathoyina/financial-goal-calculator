@@ -1,8 +1,11 @@
+import { parseDecimal } from "./parse";
 import {
   calculateRetirement,
   type RetirementInput,
   type RetirementResult,
 } from "./retirement";
+
+export { parseDecimal };
 
 export interface RetirementFormState {
   currentAge: string;
@@ -45,15 +48,6 @@ const FIELD_LABELS: Record<keyof RetirementFormState, string> = {
   monthlySpendingToday: "Monthly spending in retirement",
   monthlyRetirementIncomeToday: "CPF LIFE monthly payout",
 };
-
-export function parseDecimal(raw: string): number | null {
-  let cleaned = raw.trim().replace(/,/g, "").replace(/%$/, "").trim();
-  if (cleaned.startsWith(".")) cleaned = `0${cleaned}`;
-  if (cleaned.startsWith("-.")) cleaned = `-0${cleaned.slice(1)}`;
-  if (!/^-?\d+(\.\d+)?$/.test(cleaned)) return null;
-  const value = Number(cleaned);
-  return Number.isFinite(value) ? value : null;
-}
 
 export function parseRetirementForm(
   form: RetirementFormState,

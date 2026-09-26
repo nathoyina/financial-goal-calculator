@@ -1,5 +1,8 @@
 import { CPF_INTEREST } from "../cpf/constants";
 import { calculatePlan, type PlanInput, type PlanResult } from "./plan";
+import { parseDecimal } from "./parse";
+
+export { parseDecimal };
 
 export interface ChildForm {
   id: string;
@@ -64,24 +67,112 @@ export const DEFAULT_PLAN_FORM: PlanFormState = {
   children: [],
 };
 
-export function parseDecimal(raw: string): number | null {
-  let cleaned = raw.trim().replace(/,/g, "").replace(/%$/, "").trim();
-  if (cleaned.startsWith(".")) cleaned = `0${cleaned}`;
-  if (cleaned.startsWith("-.")) cleaned = `-0${cleaned.slice(1)}`;
-  if (!/^-?\d+(\.\d+)?$/.test(cleaned)) return null;
-  const value = Number(cleaned);
-  return Number.isFinite(value) ? value : null;
-}
+export type ValidationReason = "missing" | "format" | "out-of-range";
 
 export interface FieldError {
   field: string;
   message: string;
+  reason: ValidationReason;
+}
+
+function readNumber(raw: string, field: string, label: string): number | FieldError {
+  if (raw.trim() === "") return { field, message: `Enter a number for ${label}.`, reason: "missing" };
+  const value = parseDecimal(raw);
+  if (value === null) return { field, message: `Enter a number for ${label}.`, reason: "format" };
+  return value;
+}
+
+function isFieldError(value: number | FieldError): value is FieldError {
+  return typeof value !== "number";
+}
+
+/** Step checks used by Continue. Invalid ages and blank fields cannot be submitted. */
+export function validateStep(step: number, form: PlanFormState): FieldError | null {
+  if (step === 0) {
+    const current = readNumber(form.currentAge, "currentAge", "current age");
+    if (isFieldError(current)) return current;
+    const retire = readNumber(form.retirementAge, "retirementAge", "retirement age");
+    if (isFieldError(retire)) return retire;
+    const life = readNumber(form.lifeExpectancy, "lifeExpectancy", "life expectancy");
+    if (isFieldError(life)) return life;
+    if (current < 0 || current > 120) {
+      return { field: "currentAge", message: "Current age must be between 0 and 120.", reason: "out-of-range" };
+    }
+    if (retire <= current) {
+      return {
+        field: "retirementAge",
+        message: "Retirement age has to be after your age today.",
+        reason: "out-of-range",
+      };
+    }
+    if (life <= retire) {
+      return {
+        field: "lifeExpectancy",
+        message: "Life expectancy has to be after the retirement age.",
+        reason: "out-of-range",
+      };
+    }
+  }
+  if (step === 1) {
+    const fields: [keyof PlanFormState, string][] = [
+      ["monthlyIncome", "monthly income"],
+      ["annualIncomeGrowth", "income growth"],
+      ["monthlyExpensesNow", "monthly expenses"],
+      ["monthlyRetirementSpendingToday", "retirement spending"],
+      ["cashSavings", "cash savings"],
+      ["extraMonthlySaving", "extra monthly saving"],
+      ["annualReturn", "annual return"],
+      ["annualInflation", "inflation"],
+    ];
+    for (const [key, label] of fields) {
+      const value = readNumber(String(form[key]), key, label);
+      if (isFieldError(value)) return value;
+    }
+  }
+  if (step === 2 && form.hasLoan) {
+    const balance = readNumber(form.loanBalance, "loanBalance", "the loan balance");
+    if (isFieldError(balance)) return balance;
+    const rate = readNumber(form.loanRate, "loanRate", "the loan interest rate");
+    if (isFieldError(rate)) return rate;
+    const years = readNumber(form.loanYears, "loanYears", "how many years are left");
+    if (isFieldError(years)) return years;
+    if (form.loanInstalment.trim() !== "") {
+      const instalment = readNumber(form.loanInstalment, "loanInstalment", "the instalment");
+      if (isFieldError(instalment)) {
+        return { field: "loanInstalment", message: "Enter a number for the instalment, or leave it blank.", reason: instalment.reason };
+      }
+    }
+  }
+  if (step === 3 && form.includeCpf) {
+    const fields: [keyof PlanFormState, string][] = [
+      ["oa", "Ordinary Account"],
+      ["sa", "Special Account"],
+      ["ra", "Retirement Account"],
+      ["ma", "MediSave"],
+      ["payoutAge", "CPF LIFE payout age"],
+    ];
+    for (const [key, label] of fields) {
+      const value = readNumber(String(form[key]), key, label);
+      if (isFieldError(value)) return value;
+    }
+  }
+  if (step === 4) {
+    for (const child of form.children) {
+      const age = readNumber(child.currentAge, "childAge", "the child’s age");
+      if (isFieldError(age)) return age;
+      const start = readNumber(child.startAge, "childStartAge", "the age costs start");
+      if (isFieldError(start)) return start;
+      const years = readNumber(child.years, "childYears", "how many years of costs to plan for");
+      if (isFieldError(years)) return years;
+      const cost = readNumber(child.yearlyCostToday, "childCost", "the yearly education cost");
+      if (isFieldError(cost)) return cost;
+    }
+  }
+  return null;
 }
 
 function required(raw: string, field: string, label: string): number | FieldError {
-  const value = parseDecimal(raw);
-  if (value === null) return { field, message: `Enter a number for ${label}.` };
-  return value;
+  return readNumber(raw, field, label);
 }
 
 export function parsePlanForm(
@@ -141,7 +232,12 @@ export function parsePlanForm(
     let monthlyInstalment: number | undefined;
     if (instalmentRaw !== "") {
       const parsed = parseDecimal(instalmentRaw);
-      if (parsed === null) return { ok: false, error: { field: "loanInstalment", message: "Enter a number for the instalment." } };
+      if (parsed === null) {
+        return {
+          ok: false,
+          error: { field: "loanInstalment", message: "Enter a number for the instalment.", reason: "format" },
+        };
+      }
       monthlyInstalment = parsed;
     }
     loan = {
@@ -185,6 +281,8 @@ export function parsePlanForm(
   };
 
   const result = calculatePlan(input);
-  if (!result.valid) return { ok: false, error: { field: "form", message: result.errors[0] ?? "Check the inputs." } };
+  if (!result.valid) {
+    return { ok: false, error: { field: "form", message: result.errors[0] ?? "Check the inputs.", reason: "out-of-range" } };
+  }
   return { ok: true, input, result };
 }

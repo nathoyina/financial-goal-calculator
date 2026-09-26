@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export function EstimateTag({
   id,
@@ -12,30 +12,43 @@ export function EstimateTag({
   onOpen: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLSpanElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
   const panelId = `${id}-note`;
 
-  const reveal = () => {
-    setOpen((current) => {
-      if (!current) onOpen();
-      return true;
-    });
-  };
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setOpen(false);
+      buttonRef.current?.focus();
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [open]);
 
   return (
-    <span className="inline-flex max-w-full flex-col items-start gap-2 align-middle">
+    <span ref={rootRef} className="inline-flex max-w-full flex-col items-start gap-2 align-middle">
       <button
+        ref={buttonRef}
         type="button"
         className="min-h-11 rounded-full border border-border px-3 text-sm font-medium text-muted"
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => {
-          if (open) {
-            setOpen(false);
-            return;
-          }
-          reveal();
+          setOpen((current) => {
+            if (!current) onOpen();
+            return !current;
+          });
         }}
-        onFocus={reveal}
       >
         Estimate
       </button>
