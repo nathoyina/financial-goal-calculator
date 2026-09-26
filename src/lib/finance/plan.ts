@@ -269,11 +269,17 @@ function simulate(input: PlanInput): Simulation {
         title: "Retirement sum",
         explanation: `Assumption. CPF has published retirement sums through ${RETIREMENT_SUM_GROWTH_ASSUMPTION.afterYearTurning55}. This plan grows the ${RETIREMENT_SUM_GROWTH_ASSUMPTION.afterYearTurning55} Basic Retirement Sum by ${formatPercent(RETIREMENT_SUM_GROWTH_ASSUMPTION.annual)} a year and rounds to the nearest $${RETIREMENT_SUM_GROWTH_ASSUMPTION.roundTo.toLocaleString("en-SG")}. For someone turning 55 in ${cohortYear}, the Full Retirement Sum used here is $${sums.frs.toLocaleString("en-SG")}.`,
       });
+    } else if (sums.estimated && cohortYear === 2021) {
+      estimates.push({
+        id: "retirement-sum",
+        title: "Retirement sum",
+        explanation: `The 2021 Basic Retirement Sum of $${sums.brs.toLocaleString("en-SG")} comes from news coverage, not an official CPF or MOM page, so it is labelled an estimate. The Full Retirement Sum used here is $${sums.frs.toLocaleString("en-SG")}.`,
+      });
     } else if (sums.estimated) {
       estimates.push({
         id: "retirement-sum",
         title: "Retirement sum",
-        explanation: `CPF’s published table in this plan starts in ${sums.yearUsed}. This plan uses that year’s Full Retirement Sum of $${sums.frs.toLocaleString("en-SG")} for a member who turned 55 in ${cohortYear}, and labels it an estimate.`,
+        explanation: `The earliest official Basic Retirement Sum in this plan is the ${sums.yearUsed} figure. This plan uses that year’s Full Retirement Sum of $${sums.frs.toLocaleString("en-SG")} for a member who turned 55 in ${cohortYear}, and labels it an estimate.`,
       });
     }
     if (cpf?.bhsEstimated) {
@@ -506,8 +512,11 @@ export function estimateNotice(result: Pick<PlanResult, "reliesOnEstimate" | "es
   if (ids.has("retirement-sum") && result.cohortYear > 2027) {
     sentences.push("The retirement sum after 2027 is an assumption, not a published CPF figure.");
   }
-  if (ids.has("retirement-sum") && result.cohortYear < 2016) {
-    sentences.push("The retirement sum for this cohort uses the 2016 figures, the earliest year cited here.");
+  if (ids.has("retirement-sum") && result.cohortYear < 2017) {
+    sentences.push("The retirement sum for this cohort uses the 2017 figures, the earliest official year cited here.");
+  }
+  if (ids.has("retirement-sum") && result.cohortYear === 2021) {
+    sentences.push("The 2021 retirement sum comes from news coverage, so it is labelled an estimate.");
   }
   if (ids.has("cpf-life-payout")) {
     sentences.push("The 2026 CPF LIFE payout ranges were not published, so that payout is an estimate.");

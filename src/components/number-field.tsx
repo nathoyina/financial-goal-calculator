@@ -27,8 +27,8 @@ export function NumberField({
         {label}
       </label>
       <div
-        className={`flex h-12 items-center rounded-full border bg-void ${
-          error ? "border-danger" : "border-border focus-within:border-yellow focus-within:ring-2 focus-within:ring-yellow"
+        className={`field-shell flex h-12 items-center rounded-full border bg-void ${
+          error ? "border-danger" : "border-border"
         }`}
       >
         {prefix ? (

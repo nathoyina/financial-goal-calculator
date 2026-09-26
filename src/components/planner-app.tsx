@@ -15,7 +15,7 @@ import {
   CPF_INTEREST,
   CPF_LIFE_DEFERRAL,
   CPF_WAGE,
-  ERS_MULTIPLE_OF_BRS,
+  ENHANCED_RETIREMENT_SUM,
   PLANNING_YEAR,
 } from "@/lib/cpf/constants";
 import { formatAge, formatMoney, formatPercent } from "@/lib/finance/format";
@@ -546,7 +546,7 @@ function Verdict({
         ))}
         <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted">
           <li>Contributions use the published citizen rates for each calendar year, on wages above {formatMoney(CPF_WAGE.fullRateAbove.value)}, capped at the {formatMoney(CPF_WAGE.ordinaryCeiling.value)} ordinary wage ceiling from {PLANNING_YEAR}. Senior-worker rates use the published 2027 table from January 2027, then stay on that table. Additional wages are not modelled. The annual wage ceiling is {formatMoney(CPF_WAGE.annualCeiling.value)}.</li>
-          <li>The Full Retirement Sum, not a voluntary top-up to the Enhanced Retirement Sum, is set aside at 55. From {ERS_MULTIPLE_OF_BRS.sinceYear} the Enhanced Retirement Sum is {ERS_MULTIPLE_OF_BRS.value} times the Basic Retirement Sum.</li>
+          <li>The Full Retirement Sum for the year you turn 55, not a voluntary top-up to the Enhanced Retirement Sum, is set aside at 55. The Enhanced Retirement Sum is the {ENHANCED_RETIREMENT_SUM.year} top-up limit of {formatMoney(ENHANCED_RETIREMENT_SUM.value)}. It is not four times an earlier cohort’s Basic Retirement Sum.</li>
           <li>Interest is calculated on each month’s balance and added at the end of December. It is not monthly compounding.</li>
           <li>MediSave is not used for living costs. Ordinary Account savings move into spendable cash at retirement, or at 55 if you retire earlier, unless an OA loan is still running.</li>
         </ul>

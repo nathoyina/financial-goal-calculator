@@ -33,35 +33,57 @@ describe("CPF constants", () => {
     expect(early.cap).toBe(66_000);
   });
 
-  it("keeps published retirement sums exact and grows later cohorts as an assumption", () => {
+  it("uses official cohort sums, labels 2021 and pre-2017, and keeps the 2026 Enhanced Retirement Sum", () => {
+    const y2017 = retirementSumsForCohort(2017);
+    expect(y2017.estimated).toBe(false);
+    expect(y2017.brs).toBe(83_000);
+    expect(y2017.frs).toBe(166_000);
+    expect(y2017.ers).toBe(440_800);
+    expect(y2017.ers).not.toBe(y2017.brs * 4);
+
+    const y2020 = retirementSumsForCohort(2020);
+    expect(y2020.estimated).toBe(false);
+    expect(y2020.brs).toBe(90_500);
+    expect(y2020.frs).toBe(181_000);
+    expect(y2020.ers).toBe(440_800);
+
+    const y2021 = retirementSumsForCohort(2021);
+    expect(y2021.estimated).toBe(true);
+    expect(y2021.yearUsed).toBe(2021);
+    expect(y2021.brs).toBe(93_000);
+    expect(y2021.frs).toBe(186_000);
+    expect(y2021.ers).toBe(440_800);
+
+    const y2022 = retirementSumsForCohort(2022);
+    expect(y2022.estimated).toBe(false);
+    expect(y2022.brs).toBe(96_000);
+    expect(y2022.frs).toBe(192_000);
+
+    const y2024 = retirementSumsForCohort(2024);
+    expect(y2024.estimated).toBe(false);
+    expect(y2024.brs).toBe(102_900);
+    expect(y2024.frs).toBe(205_800);
+    expect(y2024.ers).toBe(440_800);
+
+    const before = retirementSumsForCohort(2016);
+    expect(before.estimated).toBe(true);
+    expect(before.yearUsed).toBe(2017);
+    expect(before.brs).toBe(83_000);
+    expect(before.frs).toBe(166_000);
+    expect(before.ers).toBe(440_800);
+
     const y2027 = retirementSumsForCohort(2027);
     expect(y2027.estimated).toBe(false);
     expect(y2027.brs).toBe(114_100);
     expect(y2027.frs).toBe(228_200);
-    expect(y2027.ers).toBe(456_400);
+    expect(y2027.ers).toBe(440_800);
 
     const y2028 = retirementSumsForCohort(2028);
     expect(y2028.estimated).toBe(true);
     expect(y2028.brs).toBe(118_100);
     expect(y2028.frs).toBe(236_200);
-    expect(y2028.ers).toBe(472_400);
-    expect(y2028.ers).toBe(y2028.brs * 4);
-
-    const y2021 = retirementSumsForCohort(2021);
-    expect(y2021.estimated).toBe(false);
-    expect(y2021.brs).toBe(93_000);
-    expect(y2021.frs).toBe(186_000);
-    expect(y2021.ers).toBe(279_000);
-
-    const y2016 = retirementSumsForCohort(2016);
-    expect(y2016.estimated).toBe(false);
-    expect(y2016.brs).toBe(80_500);
-    expect(y2016.ers).toBe(241_500);
-
-    const early = retirementSumsForCohort(2015);
-    expect(early.estimated).toBe(true);
-    expect(early.yearUsed).toBe(2016);
-    expect(early.brs).toBe(80_500);
+    expect(y2028.ers).toBe(440_800);
+    expect(y2028.ers).not.toBe(y2028.brs * 4);
   });
 
   it("caps deferral at 35% with simple interest", () => {

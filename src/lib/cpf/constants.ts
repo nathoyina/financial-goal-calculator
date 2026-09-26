@@ -218,55 +218,59 @@ export interface RetirementSumYear {
   /** Calendar year the member turns 55. BRS and FRS stay fixed for that cohort. */
   yearTurning55: number;
   brs: number;
-  /** Stored explicitly. ERS was 3 x BRS through 2024 and 4 x BRS from 2025. */
-  ers: number;
   source: string;
+  /** True when this BRS is not on an official CPF or MOM page. */
+  estimated: boolean;
 }
 
-export const RETIREMENT_SUM_SOURCE_2016 =
-  "https://www.cpf.gov.sg/content/dam/web/member/infohub/documents/YourCPF_MoreFlexibilityMoreOptionsEnglish.pdf";
+/** CPF’s own table for members who turned 55 in 2017 to 2020. */
+export const RETIREMENT_SUM_SOURCE_2017_2020 =
+  "https://www.cpf.gov.sg/content/dam/web/member/general-documents/Retirement%20Sums.pdf";
 
-export const RETIREMENT_SUM_SOURCE_2017_2022 =
-  "https://www.cpf.gov.sg/content/dam/web/member/retirement-income/documents/19%20Feb%20New%20RS.pdf";
+/** MOM Budget 2022 factsheet, used for members turning 55 in 2022 to 2024. */
+export const RETIREMENT_SUM_SOURCE_2022_2024 =
+  "https://www.mom.gov.sg/-/media/mom/documents/budget2022/factsheet-on-basic-retirement-sums-for-cpf-members-reaching-age-55-from-2023-to-2027.pdf/1000";
 
-/** 2023 and 2024 only. That page’s 2025–2027 Enhanced Retirement Sum was later raised to 4 x BRS. */
-export const RETIREMENT_SUM_SOURCE_2023_2024 =
-  "https://www.cpf.gov.sg/member/infohub/news/cpf-related-announcements/budget-highlights-2022";
+export const RETIREMENT_SUM_SOURCE_2025_2027 =
+  "https://www.cpf.gov.sg/member/infohub/educational-resources/what-is-the-cpf-retirement-sum";
 
 /**
- * Published retirement sums. FRS is 2 x BRS. Cohorts before 2016 are not in
- * these PDFs; callers use 2016 and must label that as an estimate. Sums
- * after 2027 are not published.
+ * 2021 is in news coverage only. The 26 Sep 2026 reference names AsiaOne and
+ * does not give a page URL, so none is stored here.
+ */
+export const RETIREMENT_SUM_2021_SOURCE =
+  "News coverage only. Not on an official CPF or MOM page in the 26 September 2026 check.";
+
+/**
+ * Cohort Basic and Full Retirement Sums. FRS is 2 x BRS. The Enhanced
+ * Retirement Sum is not stored here: it is the current year’s top-up limit.
+ * A year before 2017 uses the 2017 row and must be labelled an estimate.
+ * 2021 must be labelled an estimate. Sums after 2027 are not published.
  */
 export const PUBLISHED_RETIREMENT_SUMS: RetirementSumYear[] = [
-  { yearTurning55: 2016, brs: 80_500, ers: 241_500, source: RETIREMENT_SUM_SOURCE_2016 },
-  { yearTurning55: 2017, brs: 83_000, ers: 249_000, source: RETIREMENT_SUM_SOURCE_2017_2022 },
-  { yearTurning55: 2018, brs: 85_500, ers: 256_500, source: RETIREMENT_SUM_SOURCE_2017_2022 },
-  { yearTurning55: 2019, brs: 88_000, ers: 264_000, source: RETIREMENT_SUM_SOURCE_2017_2022 },
-  { yearTurning55: 2020, brs: 90_500, ers: 271_500, source: RETIREMENT_SUM_SOURCE_2017_2022 },
-  { yearTurning55: 2021, brs: 93_000, ers: 279_000, source: RETIREMENT_SUM_SOURCE_2017_2022 },
-  { yearTurning55: 2022, brs: 96_000, ers: 288_000, source: RETIREMENT_SUM_SOURCE_2017_2022 },
-  { yearTurning55: 2023, brs: 99_400, ers: 298_200, source: RETIREMENT_SUM_SOURCE_2023_2024 },
-  { yearTurning55: 2024, brs: 102_900, ers: 308_700, source: RETIREMENT_SUM_SOURCE_2023_2024 },
-  {
-    yearTurning55: 2025,
-    brs: 106_500,
-    ers: 426_000,
-    source: "https://www.cpf.gov.sg/member/infohub/educational-resources/what-is-the-cpf-retirement-sum",
-  },
-  {
-    yearTurning55: 2026,
-    brs: 110_200,
-    ers: 440_800,
-    source: "https://www.cpf.gov.sg/member/infohub/educational-resources/what-is-the-cpf-retirement-sum",
-  },
-  {
-    yearTurning55: 2027,
-    brs: 114_100,
-    ers: 456_400,
-    source: "https://www.cpf.gov.sg/member/infohub/educational-resources/what-is-the-cpf-retirement-sum",
-  },
+  { yearTurning55: 2017, brs: 83_000, estimated: false, source: RETIREMENT_SUM_SOURCE_2017_2020 },
+  { yearTurning55: 2018, brs: 85_500, estimated: false, source: RETIREMENT_SUM_SOURCE_2017_2020 },
+  { yearTurning55: 2019, brs: 88_000, estimated: false, source: RETIREMENT_SUM_SOURCE_2017_2020 },
+  { yearTurning55: 2020, brs: 90_500, estimated: false, source: RETIREMENT_SUM_SOURCE_2017_2020 },
+  { yearTurning55: 2021, brs: 93_000, estimated: true, source: RETIREMENT_SUM_2021_SOURCE },
+  { yearTurning55: 2022, brs: 96_000, estimated: false, source: RETIREMENT_SUM_SOURCE_2022_2024 },
+  { yearTurning55: 2023, brs: 99_400, estimated: false, source: RETIREMENT_SUM_SOURCE_2022_2024 },
+  { yearTurning55: 2024, brs: 102_900, estimated: false, source: RETIREMENT_SUM_SOURCE_2022_2024 },
+  { yearTurning55: 2025, brs: 106_500, estimated: false, source: RETIREMENT_SUM_SOURCE_2025_2027 },
+  { yearTurning55: 2026, brs: 110_200, estimated: false, source: RETIREMENT_SUM_SOURCE_2025_2027 },
+  { yearTurning55: 2027, brs: 114_100, estimated: false, source: RETIREMENT_SUM_SOURCE_2025_2027 },
 ];
+
+/**
+ * Top-up limit for the current year. It is not fixed by the year a member
+ * turned 55, and it is not 4 x an older cohort’s Basic Retirement Sum.
+ */
+export const ENHANCED_RETIREMENT_SUM = {
+  value: 440_800,
+  year: 2026,
+  source: RETIREMENT_SUM_SOURCE_2025_2027,
+  note: "The 2026 Enhanced Retirement Sum is the top-up limit for this year. A later year’s limit is not published here, so the plan does not invent one.",
+} as const;
 
 /**
  * 2025 to 2027 Basic Retirement Sums rose by about 3.5% a year
@@ -286,6 +290,12 @@ export const RETIREMENT_SUM_GROWTH_ASSUMPTION = {
 export const RETIREMENT_SUM_SOURCE =
   "https://www.cpf.gov.sg/member/infohub/educational-resources/how-the-cpf-retirement-sum-affects-your-payouts";
 
+/**
+ * For members turning 55 in 2025 or later, that calendar year’s published
+ * Enhanced Retirement Sum is 4 x that year’s Basic Retirement Sum. Do not
+ * apply this to an earlier cohort. This plan uses ENHANCED_RETIREMENT_SUM,
+ * the 2026 top-up limit, instead of a multiple of an older Basic Retirement Sum.
+ */
 export const ERS_MULTIPLE_OF_BRS = {
   value: 4,
   sinceYear: 2025,
@@ -494,14 +504,14 @@ export function retirementSumsForCohort(yearTurning55: number): {
   const first = published[0];
   const last = published[published.length - 1];
   const exact = published.find((row) => row.yearTurning55 === yearTurning55);
-  const multiple = ERS_MULTIPLE_OF_BRS.value;
+  const ers = ENHANCED_RETIREMENT_SUM.value;
 
   if (exact) {
     return {
       brs: exact.brs,
       frs: exact.brs * 2,
-      ers: exact.ers,
-      estimated: false,
+      ers,
+      estimated: exact.estimated,
       yearUsed: exact.yearTurning55,
     };
   }
@@ -510,7 +520,7 @@ export function retirementSumsForCohort(yearTurning55: number): {
     return {
       brs: first.brs,
       frs: first.brs * 2,
-      ers: first.ers,
+      ers,
       estimated: true,
       yearUsed: first.yearTurning55,
     };
@@ -523,7 +533,7 @@ export function retirementSumsForCohort(yearTurning55: number): {
   return {
     brs,
     frs: brs * 2,
-    ers: brs * multiple,
+    ers,
     estimated: true,
     yearUsed: yearTurning55,
   };

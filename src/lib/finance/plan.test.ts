@@ -180,5 +180,31 @@ describe("retirement plan", () => {
     expect(published.retirementSumEstimated).toBe(false);
     expect(estimateNotice(published)).not.toMatch(/after 2027/);
     expect(estimateNotice(calculatePlan(base))).toBeNull();
+
+    const newsCohort = calculatePlan({
+      ...base,
+      currentAge: 60,
+      retirementAge: 70,
+      lifeExpectancy: 90,
+      includeCpf: true,
+      cpf: { oa: 10_000, sa: 0, ra: 0, ma: 0, payoutAge: 65 },
+    });
+    expect(newsCohort.cohortYear).toBe(2021);
+    expect(newsCohort.retirementSumEstimated).toBe(true);
+    expect(newsCohort.fullRetirementSum).toBe(186_000);
+    expect(estimateNotice(newsCohort)).toMatch(/news coverage/);
+
+    const earlyCohort = calculatePlan({
+      ...base,
+      currentAge: 70,
+      retirementAge: 75,
+      lifeExpectancy: 90,
+      includeCpf: true,
+      cpf: { oa: 10_000, sa: 0, ra: 0, ma: 0, payoutAge: 65 },
+    });
+    expect(earlyCohort.cohortYear).toBe(2011);
+    expect(earlyCohort.retirementSumEstimated).toBe(true);
+    expect(earlyCohort.fullRetirementSum).toBe(166_000);
+    expect(estimateNotice(earlyCohort)).toMatch(/2017 figures/);
   });
 });

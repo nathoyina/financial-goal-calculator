@@ -44,6 +44,12 @@ select:focus-visible {
   outline: none;
 }
 
+/* The input itself has no outline. The shell keeps a yellow ring in every state, including an error. */
+.field-shell:has(:focus-visible) {
+  outline: 2px solid var(--yellow);
+  outline-offset: 2px;
+}
+
 .wave-drift {
   animation: wave-drift 9s ease-in-out infinite alternate;
 }
@@ -85,7 +91,7 @@ html[data-typing="true"] .step-rise {
 }
 
 .glass {
-  background: rgb(255 255 255 / 0.08);
+  background: rgb(23 23 23 / 0.85);
   border: 1px solid rgb(255 255 255 / 0.45);
   border-radius: 32px;
   box-shadow:
