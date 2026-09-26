@@ -18,6 +18,33 @@ describe("CPF projection", () => {
     expect(result.allocation.oa + result.allocation.sa + result.allocation.ma).toBeCloseTo(result.total, 6);
   });
 
+  it("uses the 2027 senior rates and the 2027 allocation", () => {
+    const senior = monthlyContributions(57, 8_000, 2027);
+    expect(senior.total).toBe(Math.round(8_000 * 0.355));
+    expect(senior.employee).toBe(Math.floor(8_000 * 0.19));
+    expect(senior.employer).toBe(senior.total - senior.employee);
+    expect(senior.allocation.ra).toBeCloseTo(senior.total * 0.3661, 6);
+    expect(senior.allocation.ma).toBeCloseTo(senior.total * 0.2957, 6);
+    expect(senior.allocation.sa).toBe(0);
+
+    const younger = monthlyContributions(30, 8_000, 2027);
+    expect(younger.total).toBe(Math.round(8_000 * 0.37));
+    expect(younger.allocation.ma).toBeCloseTo(younger.total * 0.2162, 6);
+    expect(younger.allocation.sa).toBeCloseTo(younger.total * 0.1621, 6);
+  });
+
+  it("applies deferral as 7% a year, capped at 35%, without compounding", () => {
+    const result = projectCpf({
+      currentAge: 65,
+      months: 1,
+      initial: { oa: 0, sa: 0, ra: 170_200, ma: 0 },
+      wageAtMonth: () => 0,
+      payoutAge: 70,
+    });
+    expect(result.monthlyPayout).toBeCloseTo(950 * 1.35, 6);
+    expect(result.monthlyPayout).not.toBeCloseTo(950 * 1.07 ** 5, 0);
+  });
+
   it("does not use the full-rate table at or below $750", () => {
     expect(monthlyContributions(30, 750).total).toBe(0);
     expect(monthlyContributions(30, 0).total).toBe(0);

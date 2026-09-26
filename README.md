@@ -102,29 +102,37 @@ Each study year costs the yearly amount you enter, inflated from today, and is w
 
 ### CPF
 
-Checked against cpf.gov.sg on 26 September 2026. The uploaded reference file was not in this workspace, so the figures below were taken from those pages and live in `src/lib/cpf/constants.ts`. Nothing in the components hardcodes a rate.
+Checked against cpf.gov.sg on 26 September 2026, using the team’s CPF reference from that day and the pages linked below. Every figure lives in `src/lib/cpf/constants.ts` with its year and source URL. Components read that file. They do not hardcode a rate.
 
-Interest is calculated on each month’s balance and credited once a year. It is not monthly compounding.
+Interest is calculated on each month’s balance and credited once a year. It is not monthly compounding. CPF has not published the exact credit month, so the plan adds the year’s interest every 12th month and labels that timing as an estimate.
 
 | Item | Figure | Source |
 | --- | --- | --- |
-| Ordinary Account floor | 2.5% (1 Jul–30 Sep 2026) | [CPF interest, Q3 2026](https://www.cpf.gov.sg/member/infohub/news/news-releases/cpf-interest-rates-from-1-july-to-30-september-2026) |
-| Special, MediSave, and Retirement Account floor | 4% through 31 Dec 2026 | [4% floor extension](https://www.cpf.gov.sg/member/infohub/news/news-releases/government-extends-4-per-cent-interest-rate-floor-on-special-medisave-and-retirement-account-monies-until-31-december-2026) |
-| Extra interest below 55 | 1% on the first S$60,000 combined, OA capped at S$20,000. OA’s extra interest is credited to the Special Account. | Same Q3 2026 release |
-| Extra interest from 55 | 2% on the first S$30,000 (OA cap S$20,000) and 1% on the next S$30,000. OA’s extra interest goes to the Retirement Account. | Same Q3 2026 release |
-| Ordinary wage ceiling | S$8,000 from 1 Jan 2026. Full rates apply above S$750. | [How much CPF to pay](https://www.cpf.gov.sg/employer/employer-obligations/how-much-cpf-contributions-to-pay) and the [Jan 2026 contribution PDF](https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf) |
-| Citizen / 3rd-year SPR rates, wages above S$750 | ≤55: 17% employer / 20% employee. >55–60: 16 / 18. >60–65: 12.5 / 12.5. >65–70: 9 / 7.5. >70: 7.5 / 5. Total rounded to the nearest dollar. Employee share floored. | Same contribution PDF. The 2027 senior-worker increase is not applied. |
-| Allocation | MediSave first, then Special or Retirement Account, Ordinary Account receives the rest. Ratios from the [Jan 2026 allocation PDF](https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFAllocationRatesfromJanuary2026.pdf). | |
+| Ordinary Account floor | 2.5% for 1 Oct–31 Dec 2026 | [4% floor extended to 31 Dec 2027](https://www.cpf.gov.sg/member/infohub/news/news-releases/government-extends-4-per-cent-interest-rate-floor-on-special-medisave-and-retirement-account-monies-until-31-december-2027) |
+| Special, MediSave, and Retirement Account floor | 4%, committed through 31 Dec 2027 | Same 22 September 2026 release |
+| HDB concessionary loan | 2.6% for the same quarter. The loan field starts here. Replace it with your own rate. | Same release |
+| Extra interest below 55 | 1% on the first S$60,000 combined, OA capped at S$20,000. OA’s extra interest is credited to the Special Account. | Same release, and [earning attractive interest](https://www.cpf.gov.sg/member/growing-your-savings/earning-higher-returns/earning-attractive-interest) |
+| Extra interest from 55 | 2% on the first S$30,000 (OA cap S$20,000) and 1% on the next S$30,000. OA’s extra interest goes to the Retirement Account. | Same pages |
+| Ordinary wage ceiling | S$8,000 in 2026 and 2027 (S$7,400 in 2025). Full rates apply above S$750. Annual ceiling S$102,000. | [Jan 2026 contribution PDF](https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFcontributionratesfrom1Jan2026.pdf) |
+| Citizen / 3rd-year SPR rates, 2026, wages above S$750 | ≤55: 17% employer / 20% employee. >55–60: 16 / 18. >60–65: 12.5 / 12.5. >65–70: 9 / 7.5. >70: 7.5 / 5. Total rounded to the nearest dollar. Employee share floored. | Same 2026 PDF |
+| Citizen / 3rd-year SPR rates, from January 2027 | ≤55 stays 17 / 20. >55–60 becomes 16.5 / 19. >60–65 becomes 13 / 13. Above 65 is unchanged. Later years keep this 2027 table. | [Jan 2027 contribution PDF](https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2027cpfcontributionrates.pdf) and [new contribution rates](https://www.cpf.gov.sg/employer/infohub/news/cpf-related-announcements/new-contribution-rates) |
+| Allocation | MediSave first, then Special or Retirement Account, Ordinary Account receives the rest. 2026 ratios from the [Jan 2026 allocation PDF](https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/CPFAllocationRatesfromJanuary2026.pdf). From 2027, ages above 55 to 65 use the [Jan 2027 allocation PDF](https://www.cpf.gov.sg/content/dam/web/employer/employer-obligations/documents/jan2027cpfallocationrates.pdf): above 55–60 is OA 33.82% / RA 36.61% / MA 29.57%, and above 60–65 is OA 13.47% / RA 46.15% / MA 40.38%. | |
 | Basic Healthcare Sum | S$79,000 in 2026. Excess MediSave flows to the Special Account before 55, and to the Retirement Account or Ordinary Account from 55. | [BHS for 2026](https://www.cpf.gov.sg/member/infohub/news/news-releases/cpf-interest-rates-from-1-january-to-31-march-2026-and-basic-healthcare-sum-for-2026) |
 | Retirement sums | 2025 BRS S$106,500. 2026 BRS S$110,200. 2027 BRS S$114,100. Full Retirement Sum is 2× BRS. From 2025 the Enhanced Retirement Sum is 4× BRS. | [How the retirement sum affects payouts](https://www.cpf.gov.sg/member/infohub/educational-resources/how-the-cpf-retirement-sum-affects-your-payouts) and [What is the CPF retirement sum](https://www.cpf.gov.sg/member/infohub/educational-resources/what-is-the-cpf-retirement-sum) |
 
-At 55 the Special Account closes. It fills the Retirement Account up to the Full Retirement Sum, and anything above that returns to the Ordinary Account. The Ordinary Account then tops the Retirement Account up to the Full Retirement Sum. New Retirement Account contributions above the Full Retirement Sum spill to the Ordinary Account. Interest is allowed to grow the Retirement Account past that sum.
+At 55 the Special Account closes. It fills the Retirement Account up to the Full Retirement Sum, and anything above that returns to the Ordinary Account. The Ordinary Account then tops the Retirement Account up to the Full Retirement Sum. New Retirement Account contributions above the Full Retirement Sum spill to the Ordinary Account. Interest is allowed to grow the Retirement Account past that sum. If the Full Retirement Sum is not met, CPF allows a withdrawal of up to S$5,000. This plan leaves that amount in the Retirement Account so it can support CPF LIFE. A property pledge that can cover up to half the Full Retirement Sum is not modelled.
 
 The plan sets aside the Full Retirement Sum, not a voluntary top-up to the Enhanced Retirement Sum.
 
-CPF LIFE uses the Standard plan only. Payouts are interpolated from CPF’s 2026 illustrative anchors for a male member (Retirement Account at 65, monthly payout): BRS S$170,200 → S$950, FRS S$330,100 → S$1,780, ERS S$650,100 → S$3,440. Below or above that range, the payout scales from the nearest point. The Retirement Account is set to zero when payouts start. Deferring past 65 uses 7% a year up to age 70. CPF describes that increase as “up to 7%”, so the plan labels it an estimate. The payout is based on the age-65 Retirement Account, so later growth is not counted twice. The Escalating plan is not modelled, because a start discount was not taken from a page we could cite.
+CPF LIFE uses the Standard plan only. Payouts are interpolated from CPF’s 2026 illustrative anchors for a male member (Retirement Account at 65, monthly payout): BRS S$170,200 → S$950, FRS S$330,100 → S$1,780, ERS S$650,100 → S$3,440. CPF calculates those with 6% a year. Below or above that range, the payout scales from the nearest point. The Retirement Account is set to zero when payouts start. The payout is based on the age-65 Retirement Account, so later growth is not counted twice.
 
-Cohorts turning 55 after 2027 reuse the 2027 retirement sums and are labelled estimates. Interest rates are the 2026 floors, held flat for the whole projection, and labelled estimates. MediSave is not spent on living costs.
+Official payout ranges exist for the 2025 cohort only. 2026 cohort ranges were not on cpf.gov.sg on 26 September 2026, so the screen marks them as an estimate and uses the illustration above.
+
+Deferring past 65 uses up to 7% a year, up to 35% at age 70. That 35% is 7% times five years, not compound growth. The plan uses the ceiling and labels it an estimate. CPF’s own illustration for the 2026 Full Retirement Sum starting at 70 is S$2,380 a month, which is lower than the ceiling. The Escalating plan’s starting discount was not published, so the plan does not model it and shows that as an estimate. Standard payouts stay level in dollar terms.
+
+Cohorts turning 55 after 2027 are an assumption: the 2027 Basic Retirement Sum grows by 3.5% a year, about the 2025–2027 pace, and is rounded to the nearest S$100. Full Retirement Sum stays 2× and Enhanced Retirement Sum stays 4×. The screen labels that assumption. Cohorts before 2025 use the 2025 sums and are labelled estimates too. Interest rates are the late-2026 floors. The 4% floor is committed through 31 December 2027. Both rates are then held flat and labelled estimates. MediSave is not spent on living costs.
+
+Additional wages are not modelled. The annual ceiling of S$102,000 would cap ordinary wages plus bonuses. This plan only caps the monthly ordinary wage. Selling a home bought with CPF requires a refund of principal plus accrued interest. That interest rate was not confirmed, so the plan does not charge it and shows an estimate tag. The loan rate you type is used for the monthly-rest instalment only.
 
 Ordinary Account savings move into spendable cash at retirement, or at 55 if you retire earlier, unless an Ordinary Account loan still has payments after retirement. In that case the account stays put to keep paying the loan.
 
@@ -166,8 +174,8 @@ A real integration would need a government-approved business app on the Singpass
 - Return, inflation, and income growth are constant. A poor sequence of returns early in retirement can empty cash sooner than the chart shows.
 - The nest egg is not a bequest. It is built to finish near zero at the planning age.
 - Taxes, fees, and investment products are not modelled.
-- CPF rules change. Rates after the cited period are an estimate, including the 4% floor after 31 December 2026.
-- Housing accrued interest and the CPF LIFE Escalating plan are left out on purpose. Those rates were not taken from a source we could cite, so they are not invented here.
+- CPF rules change. Rates after the cited period are an estimate, including the 4% floor after 31 December 2027 and retirement sums after the 2027 cohort.
+- The 2026 CPF LIFE payout ranges, the Escalating plan’s starting discount, and the accrued-interest rate on housing withdrawals were not verified on 26 September 2026. The screen marks each as an estimate. The last two are not applied.
 
 ## Project layout
 

@@ -9,7 +9,15 @@ import {
   track,
   verdictAnalyticsProps,
 } from "@/lib/analytics/track";
-import { formatAge, formatMoney } from "@/lib/finance/format";
+import {
+  BASIC_HEALTHCARE_SUM,
+  CPF_INTEREST,
+  CPF_LIFE_DEFERRAL,
+  CPF_WAGE,
+  ERS_MULTIPLE_OF_BRS,
+  PLANNING_YEAR,
+} from "@/lib/cpf/constants";
+import { formatAge, formatMoney, formatPercent } from "@/lib/finance/format";
 import {
   DEFAULT_PLAN_FORM,
   parseDecimal,
@@ -272,7 +280,7 @@ export function PlannerApp() {
               {form.hasLoan ? (
                 <>
                   <NumberField id="loan-balance" label="Outstanding balance" hint="What you still owe." value={form.loanBalance} onChange={(value) => update({ loanBalance: value })} prefix="S$" error={fieldError("loanBalance")} />
-                  <NumberField id="loan-rate" label="Interest rate" hint="Your loan rate. This plan uses monthly rest. It does not guess CPF accrued interest on money withdrawn for housing." value={form.loanRate} onChange={(value) => update({ loanRate: value })} suffix="%" error={fieldError("loanRate")} />
+                  <NumberField id="loan-rate" label="Interest rate" hint={`Your loan rate. The starting figure is the ${CPF_INTEREST.hdbConcessionary.year} HDB concessionary rate of ${formatPercent(CPF_INTEREST.hdbConcessionary.value)}. Replace it with your own. Monthly rest. This plan does not charge CPF accrued interest on housing withdrawals, because that rate was not confirmed.`} value={form.loanRate} onChange={(value) => update({ loanRate: value })} suffix="%" error={fieldError("loanRate")} />
                   <NumberField id="loan-years" label="Years left" hint="Remaining tenure." value={form.loanYears} onChange={(value) => update({ loanYears: value })} suffix="years" error={fieldError("loanYears")} />
                   <NumberField id="loan-instalment" label="Monthly instalment" hint="Optional. Leave blank to calculate it from the balance, rate, and years." value={form.loanInstalment} onChange={(value) => update({ loanInstalment: value })} prefix="S$" error={fieldError("loanInstalment")} />
                   <label className="flex flex-col gap-1.5 text-sm font-medium" htmlFor="loan-from">
@@ -295,11 +303,11 @@ export function PlannerApp() {
                 SGFinDex is not available to this app. It is reached through participating banks and government services
                 with Singpass, and there is no public API for an independent calculator. Enter the balances yourself, or skip.
               </p>
-              <NumberField id="oa" label="Ordinary Account (OA)" hint="Savings that can pay a home loan. This plan uses the 2026 floor rate of 2.5%." value={form.oa} onChange={(value) => update({ oa: value })} prefix="S$" error={fieldError("oa")} />
+              <NumberField id="oa" label="Ordinary Account (OA)" hint={`Savings that can pay a home loan. This plan uses the ${CPF_INTEREST.ordinaryAccount.year} floor rate of ${formatPercent(CPF_INTEREST.ordinaryAccount.value)}.`} value={form.oa} onChange={(value) => update({ oa: value })} prefix="S$" error={fieldError("oa")} />
               <NumberField id="sa" label="Special Account (SA)" hint="Closed at 55. Moved into the Retirement Account up to the Full Retirement Sum. Anything above that goes back to the OA." value={form.sa} onChange={(value) => update({ sa: value })} prefix="S$" error={fieldError("sa")} />
               <NumberField id="ra" label="Retirement Account (RA)" hint="Usually 0 before 55. This is what CPF LIFE is estimated from." value={form.ra} onChange={(value) => update({ ra: value })} prefix="S$" error={fieldError("ra")} />
-              <NumberField id="ma" label="MediSave (MA)" hint="Kept for healthcare. The 2026 Basic Healthcare Sum is S$79,000. It is not spent on living costs here." value={form.ma} onChange={(value) => update({ ma: value })} prefix="S$" error={fieldError("ma")} />
-              <NumberField id="payout-age" label="CPF LIFE payout age" hint="From 65 to 70. Later ages use CPF’s “up to 7% a year” deferral as an estimate." value={form.payoutAge} onChange={(value) => update({ payoutAge: value })} suffix="years" error={fieldError("payoutAge")} />
+              <NumberField id="ma" label="MediSave (MA)" hint={`Kept for healthcare. The ${BASIC_HEALTHCARE_SUM.year} Basic Healthcare Sum is ${formatMoney(BASIC_HEALTHCARE_SUM.value)}. It is not spent on living costs here.`} value={form.ma} onChange={(value) => update({ ma: value })} prefix="S$" error={fieldError("ma")} />
+              <NumberField id="payout-age" label="CPF LIFE payout age" hint={`From ${CPF_LIFE_DEFERRAL.earliestAge} to ${CPF_LIFE_DEFERRAL.latestAge}. Later ages use CPF’s “up to ${formatPercent(CPF_LIFE_DEFERRAL.perYear)} a year” deferral as an estimate, capped at ${formatPercent(CPF_LIFE_DEFERRAL.maxIncrease)}.`} value={form.payoutAge} onChange={(value) => update({ payoutAge: value })} suffix="years" error={fieldError("payoutAge")} />
             </section>
           ) : null}
 
@@ -431,8 +439,7 @@ function Verdict({
         <p className="mt-3 text-base leading-7 text-white">{detail}</p>
         {result.reliesOnEstimate ? (
           <p className="mt-3 text-sm leading-6 text-muted">
-            Part of this result depends on an estimate. CPF LIFE payouts and interest held flat after 2026
-            {result.retirementSumEstimated ? ", plus the retirement sum for a cohort after 2027," : ""} are marked below.
+            Part of this result depends on an estimate. Each Estimate tag below names the figure, including a retirement sum after 2027 and anything CPF has not published. A tag that says the plan does not apply a figure means that number was left out on purpose.
           </p>
         ) : null}
       </div>
@@ -521,8 +528,8 @@ function Verdict({
           </div>
         ))}
         <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted">
-          <li>Contributions use the 1 January 2026 citizen rates on wages above S$750, capped at the S$8,000 ordinary wage ceiling. The 2027 senior-worker increase is not applied.</li>
-          <li>The Full Retirement Sum, not a voluntary top-up to the Enhanced Retirement Sum, is set aside at 55. From 2025 the Enhanced Retirement Sum is 4 times the Basic Retirement Sum.</li>
+          <li>Contributions use the published citizen rates for each calendar year, on wages above {formatMoney(CPF_WAGE.fullRateAbove.value)}, capped at the {formatMoney(CPF_WAGE.ordinaryCeiling.value)} ordinary wage ceiling from {PLANNING_YEAR}. Senior-worker rates use the published 2027 table from January 2027, then stay on that table. Additional wages are not modelled. The annual wage ceiling is {formatMoney(CPF_WAGE.annualCeiling.value)}.</li>
+          <li>The Full Retirement Sum, not a voluntary top-up to the Enhanced Retirement Sum, is set aside at 55. From {ERS_MULTIPLE_OF_BRS.sinceYear} the Enhanced Retirement Sum is {ERS_MULTIPLE_OF_BRS.value} times the Basic Retirement Sum.</li>
           <li>Interest is calculated on each month’s balance and added once a year. It is not monthly compounding.</li>
           <li>MediSave is not used for living costs. Ordinary Account savings move into spendable cash at retirement, or at 55 if you retire earlier, unless an OA loan is still running.</li>
         </ul>

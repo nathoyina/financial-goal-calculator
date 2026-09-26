@@ -1,3 +1,4 @@
+import { CPF_INTEREST } from "../cpf/constants";
 import { calculatePlan, type PlanInput, type PlanResult } from "./plan";
 
 export interface ChildForm {
@@ -56,7 +57,7 @@ export const DEFAULT_PLAN_FORM: PlanFormState = {
   payoutAge: "65",
   hasLoan: false,
   loanBalance: "0",
-  loanRate: "2.6",
+  loanRate: (CPF_INTEREST.hdbConcessionary.value * 100).toFixed(1),
   loanYears: "20",
   loanInstalment: "",
   loanPaidFrom: "oa",

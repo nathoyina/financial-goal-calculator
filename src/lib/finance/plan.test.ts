@@ -156,6 +156,10 @@ describe("retirement plan", () => {
     expect(young.cohortYear).toBeGreaterThan(2027);
     expect(young.retirementSumEstimated).toBe(true);
     expect(young.estimates.some((note) => note.id === "retirement-sum")).toBe(true);
+    expect(young.estimates.find((note) => note.id === "retirement-sum")?.explanation).toMatch(/Assumption/);
     expect(young.estimates.some((note) => note.id === "cpf-life-payout")).toBe(true);
+    expect(young.estimates.find((note) => note.id === "cpf-life-payout")?.explanation).toMatch(/2026 cohort ranges/);
+    expect(young.estimates.some((note) => note.id === "escalating-plan-start")).toBe(true);
+    expect(young.estimates.some((note) => note.id === "housing-accrued-interest")).toBe(true);
   });
 });

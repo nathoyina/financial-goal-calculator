@@ -4,8 +4,12 @@ import {
   CPF_LIFE_DEFERRAL,
   CPF_LIFE_PAYOUT_ANCHORS,
   CPF_WAGE,
+  PLANNING_YEAR,
   allocationBand,
+  calendarYearAtMonth,
   contributionBand,
+  cpfLifeDeferralMultiplier,
+  ordinaryCeilingForYear,
   retirementSumsForCohort,
   yearTurning55,
 } from "./constants";
@@ -121,7 +125,7 @@ export function extraInterestSlices(balances: CpfBalances, age: number): ExtraSl
   ];
 }
 
-export function monthlyContributions(age: number, wage: number): {
+export function monthlyContributions(age: number, wage: number, year = PLANNING_YEAR): {
   employee: number;
   employer: number;
   total: number;
@@ -129,12 +133,12 @@ export function monthlyContributions(age: number, wage: number): {
 } {
   const none = { employee: 0, employer: 0, total: 0, allocation: emptyBalances() };
   if (wage <= CPF_WAGE.fullRateAbove.value) return none;
-  const capped = Math.min(wage, CPF_WAGE.ordinaryCeiling.value);
-  const band = contributionBand(age);
+  const capped = Math.min(wage, ordinaryCeilingForYear(year));
+  const band = contributionBand(age, year);
   const total = Math.round(capped * (band.employer + band.employee));
   const employee = Math.floor(capped * band.employee);
   const employer = total - employee;
-  const ratios = allocationBand(age);
+  const ratios = allocationBand(age, year);
   const ma = total * ratios.ma;
   const specialOrRetirement = total * ratios.specialOrRetirement;
   const oa = total - ma - specialOrRetirement;
@@ -231,7 +235,7 @@ export function projectCpf(input: CpfProjectionInput): CpfProjection {
     oaShortfall.push(housing - paidFromOa);
 
     const wage = Math.max(0, input.wageAtMonth(month));
-    const contribution = monthlyContributions(age, wage);
+    const contribution = monthlyContributions(age, wage, calendarYearAtMonth(month));
     current.oa += contribution.allocation.oa;
     current.ma += contribution.allocation.ma;
     addSpecialOrRetirement(
@@ -273,8 +277,8 @@ export function projectCpf(input: CpfProjectionInput): CpfProjection {
     if (!saw65 && age >= 65) {
       raAt65 = current.ra;
       saw65 = true;
-      const deferralYears = Math.max(0, payoutAge - 65);
-      payout = estimateStandardPayout(raAt65) * (1 + CPF_LIFE_DEFERRAL.perYear) ** deferralYears;
+      const deferralYears = Math.max(0, payoutAge - CPF_LIFE_DEFERRAL.earliestAge);
+      payout = estimateStandardPayout(raAt65) * cpfLifeDeferralMultiplier(deferralYears);
     }
 
     // Someone who is already 65 or older has no age-65 snapshot in this plan.
@@ -282,7 +286,7 @@ export function projectCpf(input: CpfProjectionInput): CpfProjection {
     if (month === 0 && input.currentAge >= 65 && payout === 0) {
       raAt65 = current.ra;
       const yearsAhead = Math.max(0, payoutAge - input.currentAge);
-      payout = estimateStandardPayout(raAt65) * (1 + CPF_LIFE_DEFERRAL.perYear) ** yearsAhead;
+      payout = estimateStandardPayout(raAt65) * cpfLifeDeferralMultiplier(yearsAhead);
       saw65 = true;
     }
 

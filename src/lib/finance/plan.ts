@@ -1,7 +1,18 @@
 import { projectCpf, monthlyContributions, type CpfBalances } from "../cpf/project";
-import { BASIC_HEALTHCARE_SUM, CPF_LIFE_DEFERRAL, retirementSumsForCohort, yearTurning55 } from "../cpf/constants";
+import {
+  BASIC_HEALTHCARE_SUM,
+  CPF_INTEREST,
+  CPF_LIFE_DEFERRAL,
+  CPF_LIFE_FRS_FROM_70,
+  RETIREMENT_SUM_GROWTH_ASSUMPTION,
+  UNVERIFIED_CPF_ITEMS,
+  calendarYearAtMonth,
+  retirementSumsForCohort,
+  yearTurning55,
+} from "../cpf/constants";
 import { educationByMonth, educationWithdrawals, type ChildEducation } from "./education";
 import { amortisationSchedule, levelInstalment, type LoanInput } from "./loan";
+import { formatPercent } from "./format";
 import { monthlyRate } from "./rates";
 
 export interface PlanLoan extends LoanInput {
@@ -234,33 +245,50 @@ function simulate(input: PlanInput): Simulation {
 
   const estimates: EstimateNote[] = [];
   if (input.includeCpf) {
+    const oaPercent = formatPercent(CPF_INTEREST.ordinaryAccount.value);
+    const smraPercent = formatPercent(CPF_INTEREST.specialMedisaveRetirement.value);
     estimates.push({
       id: "cpf-life-payout",
       title: "CPF LIFE payout",
-      explanation:
-        "Scaled from CPF’s 2026 illustrative Standard-plan payouts for a male member, not a personal quote from the CPF LIFE estimator. The payout is kept flat in dollar terms. The Escalating plan is not modelled. If payouts start while you are still working, they are added to cash. A member who is already 65 or older is estimated from the Retirement Account entered today, with deferral only for years still ahead.",
+      explanation: `Scaled from CPF’s ${CPF_LIFE_FRS_FROM_70.yearTurning55} illustrative Standard-plan payouts for a male member, not a personal quote. ${UNVERIFIED_CPF_ITEMS.cohort2026PayoutRanges.note} The payout is kept flat in dollar terms. If payouts start while you are still working, they are added to cash. A member who is already 65 or older is estimated from the Retirement Account entered today.`,
     });
     estimates.push({
       id: "cpf-interest",
       title: "CPF interest",
-      explanation:
-        "Ordinary Account 2.5% and Special, MediSave and Retirement Account 4% are the July to September 2026 floor rates. The 4% floor is only committed through 31 December 2026. This plan keeps both rates for every later year, and credits interest once a year from monthly balances.",
+      explanation: `Ordinary Account ${oaPercent} and Special, MediSave and Retirement Account ${smraPercent} are the 1 October to 31 December ${CPF_INTEREST.ordinaryAccount.year} floor rates. The ${smraPercent} floor is committed through ${CPF_INTEREST.specialMedisaveRetirement.floorThroughLabel}. This plan keeps both rates for every later year and labels that as an estimate. Interest is computed on each month’s balance and credited once a year, not compounded monthly. The exact credit month was not confirmed, so the plan adds the year’s interest every 12th month.`,
     });
-    if (sums.estimated) {
+    estimates.push({
+      id: "escalating-plan-start",
+      title: "Escalating plan",
+      explanation: UNVERIFIED_CPF_ITEMS.escalatingPlanStartDiscount.note,
+    });
+    if (sums.estimated && cohortYear > RETIREMENT_SUM_GROWTH_ASSUMPTION.afterYearTurning55) {
       estimates.push({
         id: "retirement-sum",
         title: "Retirement sum",
-        explanation: `CPF has published retirement sums through 2027. This plan uses the ${sums.yearUsed} Full Retirement Sum of $${sums.frs.toLocaleString("en-SG")} for a member turning 55 in ${cohortYear}.`,
+        explanation: `Assumption. CPF has published retirement sums through ${RETIREMENT_SUM_GROWTH_ASSUMPTION.afterYearTurning55}. This plan grows the ${RETIREMENT_SUM_GROWTH_ASSUMPTION.afterYearTurning55} Basic Retirement Sum by ${formatPercent(RETIREMENT_SUM_GROWTH_ASSUMPTION.annual)} a year and rounds to the nearest $${RETIREMENT_SUM_GROWTH_ASSUMPTION.roundTo.toLocaleString("en-SG")}. For someone turning 55 in ${cohortYear}, the Full Retirement Sum used here is $${sums.frs.toLocaleString("en-SG")}.`,
+      });
+    } else if (sums.estimated) {
+      estimates.push({
+        id: "retirement-sum",
+        title: "Retirement sum",
+        explanation: `CPF’s published table in this plan starts in ${sums.yearUsed}. This plan uses that year’s Full Retirement Sum of $${sums.frs.toLocaleString("en-SG")} for a member who turned 55 in ${cohortYear}, and labels it an estimate.`,
       });
     }
-    if (input.cpf.payoutAge > 65) {
+    if (input.cpf.payoutAge > CPF_LIFE_DEFERRAL.earliestAge) {
       estimates.push({
         id: "cpf-deferral",
         title: "Deferred payout",
-        explanation:
-          "CPF says deferring CPF LIFE past 65 raises the payout by up to 7% a year, up to age 70. This plan uses 7%, which is the top of that range.",
+        explanation: `CPF says each year you defer CPF LIFE past ${CPF_LIFE_DEFERRAL.earliestAge} raises payouts by up to ${formatPercent(CPF_LIFE_DEFERRAL.perYear)}, and deferring to ${CPF_LIFE_DEFERRAL.latestAge} raises them by up to ${formatPercent(CPF_LIFE_DEFERRAL.maxIncrease)}. That ${formatPercent(CPF_LIFE_DEFERRAL.maxIncrease)} is ${formatPercent(CPF_LIFE_DEFERRAL.perYear)} times ${CPF_LIFE_DEFERRAL.maxYears} years, not compound growth. This plan uses that ceiling. CPF’s illustration for the ${CPF_LIFE_FRS_FROM_70.yearTurning55} Full Retirement Sum starting at ${CPF_LIFE_FRS_FROM_70.payoutAge} is $${CPF_LIFE_FRS_FROM_70.monthlyPayout.toLocaleString("en-SG")} a month, which is lower.`,
       });
     }
+  }
+  if (input.includeCpf || input.loan) {
+    estimates.push({
+      id: "housing-accrued-interest",
+      title: "Housing accrued interest",
+      explanation: UNVERIFIED_CPF_ITEMS.housingAccruedInterestRate.note,
+    });
   }
 
   const series: BalancePoint[] = [];
@@ -303,7 +331,7 @@ function simulate(input: PlanInput): Simulation {
     const cpfLife =
       cpf && cpf.payoutStartMonth !== null && month >= cpf.payoutStartMonth ? cpf.monthlyPayout : 0;
     const wage = wageAtMonth(month);
-    const employeeCpf = input.includeCpf ? monthlyContributions(age, wage).employee : 0;
+    const employeeCpf = input.includeCpf ? monthlyContributions(age, wage, calendarYearAtMonth(month)).employee : 0;
     const sweepIncome =
       sweepMonth === month && cpf && !swept ? (cpf.balances[month]?.oa ?? 0) : 0;
     if (sweepMonth === month && cpf) swept = true;
@@ -361,7 +389,9 @@ function simulate(input: PlanInput): Simulation {
   }
 
   const firstLoan = input.loan?.paidFrom === "cash" ? (schedule[0]?.payment ?? 0) : 0;
-  const employeeNow = input.includeCpf ? monthlyContributions(input.currentAge, input.monthlyIncome).employee : 0;
+  const employeeNow = input.includeCpf
+    ? monthlyContributions(input.currentAge, input.monthlyIncome, calendarYearAtMonth(0)).employee
+    : 0;
   const lifeAlreadyPaying = cpf?.payoutStartMonth === 0 ? cpf.monthlyPayout : 0;
   const monthlySavingToday =
     input.monthlyIncome -
@@ -379,7 +409,7 @@ function simulate(input: PlanInput): Simulation {
     series,
     cpfLifeMonthly: cpf?.monthlyPayout ?? 0,
     monthlySavingToday,
-    reliesOnEstimate: input.includeCpf,
+    reliesOnEstimate: input.includeCpf || input.loan !== null,
     estimates,
     cohortYear,
     fullRetirementSum: input.includeCpf ? sums.frs : 0,
