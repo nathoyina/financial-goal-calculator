@@ -522,9 +522,11 @@ function Verdict({
       <div className="flex flex-col gap-3">
         <h3 className="text-lg font-bold">Assumptions you should read</h3>
         {result.estimates.map((note) => (
-          <div key={note.id} className="flex flex-col gap-2">
-            <EstimateTag id={note.id} explanation={note.explanation} onOpen={() => onOpenEstimate(note.id)} />
-            <p className="text-sm font-medium text-white">{note.title}</p>
+          <div key={note.id} className="flex flex-col items-start gap-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="text-sm font-medium text-white">{note.title}</p>
+              <EstimateTag id={`${note.id}-assumption`} explanation={note.explanation} onOpen={() => onOpenEstimate(note.id)} />
+            </div>
           </div>
         ))}
         <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted">
