@@ -203,7 +203,7 @@ export function BalanceChart({
           </span>
         ) : null}
         {hover ? (
-          <span className="font-medium text-white">
+          <span className="font-medium text-white tabular-nums">
             Age {formatAge(hover.age)} · {formatMoney(hover.balance, currency)}
           </span>
         ) : (
@@ -211,7 +211,7 @@ export function BalanceChart({
         )}
       </figcaption>
       <details className="rounded-2xl border border-[#8D8D8D] px-4 py-3">
-        <summary className="cursor-pointer text-sm font-medium">Year-by-year balances</summary>
+        <summary className="flex min-h-11 cursor-pointer items-center text-sm font-medium">Year-by-year balances</summary>
         <div className="mt-3 max-h-64 overflow-auto">
           <table className="w-full text-left text-sm">
             <caption className="sr-only">Balance at each whole year of age</caption>
@@ -226,7 +226,7 @@ export function BalanceChart({
               {rows.map((point) => (
                 <tr key={`${point.age}-${point.phase}`} className="border-t border-[#3a3a3a]">
                   <td className="py-1.5 pr-3">{formatAge(point.age)}</td>
-                  <td className="py-1.5 pr-3">{formatMoney(point.balance, currency)}</td>
+                  <td className="py-1.5 pr-3 tabular-nums">{formatMoney(point.balance, currency)}</td>
                   <td className="py-1.5">{point.phase === "accumulation" ? "Saving" : "Drawing down"}</td>
                 </tr>
               ))}

@@ -185,21 +185,21 @@ export function PlannerApp() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="relative overflow-hidden bg-yellow text-onyx">
+      <header className="relative overflow-hidden bg-onyx text-white">
         <div className={`mx-auto w-full max-w-3xl px-4 sm:px-6 ${step === 0 ? "pt-10 pb-28 sm:pt-16 sm:pb-40" : "pt-6 pb-16 sm:pb-20"}`}>
-          <p className="text-xs font-semibold uppercase tracking-[0.22em]">financial-goal-calculator</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted">financial-goal-calculator</p>
           {step === 0 ? (
             <>
-              <h1 className="mt-4 max-w-4xl text-5xl font-extrabold tracking-tight text-balance sm:text-7xl lg:text-8xl">
+              <h1 className="mt-4 max-w-4xl text-5xl font-extrabold tracking-tight text-balance text-white sm:text-7xl lg:text-8xl">
                 Can you retire?
               </h1>
-              <p className="mt-5 max-w-md text-sm font-medium leading-relaxed sm:text-base">
+              <p className="mt-5 max-w-md text-sm font-medium leading-relaxed text-muted sm:text-base">
                 A Singapore check for the age you choose. Income, a home loan, CPF, and education all change the answer.
                 Nothing leaves this browser.
               </p>
             </>
           ) : (
-            <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-5xl">Can you retire?</h1>
+            <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-white sm:text-5xl">Can you retire?</h1>
           )}
         </div>
         <div className="wave-drift pointer-events-none absolute right-0 -bottom-px left-0 h-16 w-[140%] sm:h-24" aria-hidden="true">
@@ -226,9 +226,9 @@ export function PlannerApp() {
           {step === 0 ? (
             <section className="flex flex-col gap-4">
               <h2 className="text-2xl font-bold tracking-tight">When do you want to stop working?</h2>
-              <NumberField id="current-age" label="Current age" hint="Any age from a first job to a late career." value={form.currentAge} onChange={(value) => update({ currentAge: value })} error={fieldError("currentAge")} />
-              <NumberField id="retirement-age" label="Retirement age" hint="40, 65, 72: any age after today and before the planning age." value={form.retirementAge} onChange={(value) => update({ retirementAge: value })} error={fieldError("retirementAge")} />
-              <NumberField id="life-expectancy" label="Plan until age" hint="How long the money should last. A planning age, not a prediction." value={form.lifeExpectancy} onChange={(value) => update({ lifeExpectancy: value })} error={fieldError("lifeExpectancy")} />
+              <NumberField id="current-age" label="Current age" hint="Any age from a first job to a late career." value={form.currentAge} onChange={(value) => update({ currentAge: value })} suffix="years" error={fieldError("currentAge")} />
+              <NumberField id="retirement-age" label="Retirement age" hint="40, 65, 72: any age after today and before the planning age." value={form.retirementAge} onChange={(value) => update({ retirementAge: value })} suffix="years" error={fieldError("retirementAge")} />
+              <NumberField id="life-expectancy" label="Plan until age" hint="How long the money should last. A planning age, not a prediction." value={form.lifeExpectancy} onChange={(value) => update({ lifeExpectancy: value })} suffix="years" error={fieldError("lifeExpectancy")} />
             </section>
           ) : null}
 
@@ -273,7 +273,7 @@ export function PlannerApp() {
                 <>
                   <NumberField id="loan-balance" label="Outstanding balance" hint="What you still owe." value={form.loanBalance} onChange={(value) => update({ loanBalance: value })} prefix="S$" error={fieldError("loanBalance")} />
                   <NumberField id="loan-rate" label="Interest rate" hint="Your loan rate. This plan uses monthly rest. It does not guess CPF accrued interest on money withdrawn for housing." value={form.loanRate} onChange={(value) => update({ loanRate: value })} suffix="%" error={fieldError("loanRate")} />
-                  <NumberField id="loan-years" label="Years left" hint="Remaining tenure." value={form.loanYears} onChange={(value) => update({ loanYears: value })} error={fieldError("loanYears")} />
+                  <NumberField id="loan-years" label="Years left" hint="Remaining tenure." value={form.loanYears} onChange={(value) => update({ loanYears: value })} suffix="years" error={fieldError("loanYears")} />
                   <NumberField id="loan-instalment" label="Monthly instalment" hint="Optional. Leave blank to calculate it from the balance, rate, and years." value={form.loanInstalment} onChange={(value) => update({ loanInstalment: value })} prefix="S$" error={fieldError("loanInstalment")} />
                   <label className="flex flex-col gap-1.5 text-sm font-medium" htmlFor="loan-from">
                     Paid from
@@ -299,7 +299,7 @@ export function PlannerApp() {
               <NumberField id="sa" label="Special Account (SA)" hint="Closed at 55. Moved into the Retirement Account up to the Full Retirement Sum. Anything above that goes back to the OA." value={form.sa} onChange={(value) => update({ sa: value })} prefix="S$" error={fieldError("sa")} />
               <NumberField id="ra" label="Retirement Account (RA)" hint="Usually 0 before 55. This is what CPF LIFE is estimated from." value={form.ra} onChange={(value) => update({ ra: value })} prefix="S$" error={fieldError("ra")} />
               <NumberField id="ma" label="MediSave (MA)" hint="Kept for healthcare. The 2026 Basic Healthcare Sum is S$79,000. It is not spent on living costs here." value={form.ma} onChange={(value) => update({ ma: value })} prefix="S$" error={fieldError("ma")} />
-              <NumberField id="payout-age" label="CPF LIFE payout age" hint="From 65 to 70. Later ages use CPF’s “up to 7% a year” deferral as an estimate." value={form.payoutAge} onChange={(value) => update({ payoutAge: value })} error={fieldError("payoutAge")} />
+              <NumberField id="payout-age" label="CPF LIFE payout age" hint="From 65 to 70. Later ages use CPF’s “up to 7% a year” deferral as an estimate." value={form.payoutAge} onChange={(value) => update({ payoutAge: value })} suffix="years" error={fieldError("payoutAge")} />
             </section>
           ) : null}
 
@@ -331,9 +331,9 @@ export function PlannerApp() {
                     </select>
                     <span className="font-normal text-muted">Does not fill in a fee. Overseas plans are often higher. Use your own yearly figure.</span>
                   </label>
-                  <NumberField id={`child-age-${child.id}`} label="Child’s age now" hint="Used to time the costs." value={child.currentAge} onChange={(value) => update({ children: form.children.map((item) => item.id === child.id ? { ...item, currentAge: value } : item) })} error={fieldError("childAge")} />
-                  <NumberField id={`child-start-${child.id}`} label="Age costs start" hint="Often 18 or 19 for university." value={child.startAge} onChange={(value) => update({ children: form.children.map((item) => item.id === child.id ? { ...item, startAge: value } : item) })} error={fieldError("childStartAge")} />
-                  <NumberField id={`child-years-${child.id}`} label="Years of costs" hint="One withdrawal a year. Use 1 year for a single lump sum." value={child.years} onChange={(value) => update({ children: form.children.map((item) => item.id === child.id ? { ...item, years: value } : item) })} error={fieldError("childYears")} />
+                  <NumberField id={`child-age-${child.id}`} label="Child’s age now" hint="Used to time the costs." value={child.currentAge} onChange={(value) => update({ children: form.children.map((item) => item.id === child.id ? { ...item, currentAge: value } : item) })} suffix="years" error={fieldError("childAge")} />
+                  <NumberField id={`child-start-${child.id}`} label="Age costs start" hint="Often 18 or 19 for university." value={child.startAge} onChange={(value) => update({ children: form.children.map((item) => item.id === child.id ? { ...item, startAge: value } : item) })} suffix="years" error={fieldError("childStartAge")} />
+                  <NumberField id={`child-years-${child.id}`} label="Years of costs" hint="One withdrawal a year. Use 1 year for a single lump sum." value={child.years} onChange={(value) => update({ children: form.children.map((item) => item.id === child.id ? { ...item, years: value } : item) })} suffix="years" error={fieldError("childYears")} />
                   <NumberField id={`child-cost-${child.id}`} label="Yearly cost" hint="Fees and living costs for one year, in today’s prices." value={child.yearlyCostToday} onChange={(value) => update({ children: form.children.map((item) => item.id === child.id ? { ...item, yearlyCostToday: value } : item) })} prefix="S$" error={fieldError("childCost")} />
                   <button type="button" className="pill pill-ghost self-start text-sm" onClick={() => update({ children: form.children.filter((item) => item.id !== child.id) })}>
                     Remove
