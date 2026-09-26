@@ -19,18 +19,16 @@ export function yearsUntilRetirementLine(currentAge: number, retirementAge: numb
 }
 
 export interface TakeHomeInput {
-  includeCpf: boolean;
   currentAge: number;
   monthlyIncome: number;
 }
 
 /**
- * Today's take-home pay. With CPF on, this is gross income minus the employee
- * contribution from monthlyContributions (age band, wage ceiling, below-S$750 rule).
- * With CPF off, the simulation deducts nothing, so take-home is the gross income.
+ * Today's take-home pay: gross income minus the employee contribution from
+ * monthlyContributions (age band, wage ceiling, below-S$750 rule). Leaving CPF
+ * balances out of the plan does not turn this deduction off.
  */
 export function takeHomePay(input: TakeHomeInput): number {
-  if (!input.includeCpf) return input.monthlyIncome;
   const { employee } = monthlyContributions(input.currentAge, input.monthlyIncome, calendarYearAtMonth(0));
   return input.monthlyIncome - employee;
 }
@@ -71,17 +69,15 @@ export function cpfLifeInTodaysMoney(input: {
 }
 
 /**
- * True when CPF is included and some working-year salary is above the ordinary
- * wage ceiling. The plan holds that ceiling flat; the verdict should say so.
+ * True when some working-year salary is above the ordinary wage ceiling.
+ * Employee CPF is deducted either way, and the plan holds that ceiling flat.
  */
 export function projectedSalaryExceedsCeiling(input: {
-  includeCpf: boolean;
   currentAge: number;
   retirementAge: number;
   monthlyIncome: number;
   annualIncomeGrowth: number;
 }): boolean {
-  if (!input.includeCpf) return false;
   const ceiling = CPF_WAGE.ordinaryCeiling.value;
   const retirementMonth = Math.round(input.retirementAge * 12) - Math.round(input.currentAge * 12);
   for (let month = 0; month < retirementMonth; month += 1) {

@@ -6,7 +6,7 @@ const base: PlanInput = {
   retirementAge: 42,
   lifeExpectancy: 44,
   cashSavings: 0,
-  monthlyIncome: 3_000,
+  monthlyIncome: 3_750,
   annualIncomeGrowth: 0,
   monthlyExpensesNow: 2_000,
   monthlyRetirementSpendingToday: 1_000,
@@ -28,9 +28,9 @@ describe("retirement plan", () => {
     expect(sameAge.errors[0]).toMatch(/after your current age/i);
   });
 
-  it("saves income minus expenses and can fund a matching retirement spend", () => {
+  it("saves income minus employee CPF and expenses, and can fund a matching retirement spend", () => {
     const result = calculatePlan(base);
-    expect(result.monthlySavingToday).toBe(1_000);
+    expect(result.monthlySavingToday).toBe(3_750 - 750 - 2_000);
     expect(result.projectedCashAtRetirement).toBeCloseTo(24_000, 4);
     expect(result.nestEggNeeded).toBeCloseTo(24_000, 4);
     expect(result.canRetire).toBe(true);
@@ -80,6 +80,34 @@ describe("retirement plan", () => {
     expect(oaLoan.monthlySavingToday).toBeCloseTo(withCpf.monthlySavingToday, 4);
     expect(oaLoan.monthlySavingToday).toBeGreaterThan(cashLoan.monthlySavingToday);
     expect(oaLoan.reliesOnEstimate).toBe(true);
+  });
+
+  it("still deducts employee CPF when balances and CPF LIFE are left out", () => {
+    const balances = { oa: 500_000, sa: 200_000, ra: 80_000, ma: 50_000, payoutAge: 65 };
+    const citizen = {
+      ...base,
+      currentAge: 35,
+      retirementAge: 65,
+      lifeExpectancy: 90,
+      monthlyIncome: 6_000,
+      monthlyExpensesNow: 2_000,
+      monthlyRetirementSpendingToday: 2_000,
+      includeCpf: false,
+      cpf: balances,
+    };
+    const leftOut = calculatePlan(citizen);
+    const sameWithoutBalances = calculatePlan({
+      ...citizen,
+      cpf: { oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 },
+    });
+    const included = calculatePlan({ ...citizen, includeCpf: true });
+
+    expect(leftOut.monthlySavingToday).toBe(6_000 - 1_200 - 2_000);
+    expect(leftOut.cpfLifeMonthly).toBe(0);
+    expect(leftOut.projectedCashAtRetirement).toBeCloseTo(sameWithoutBalances.projectedCashAtRetirement, 4);
+    expect(leftOut.nestEggNeeded).toBeCloseTo(sameWithoutBalances.nestEggNeeded, 4);
+    expect(included.cpfLifeMonthly).toBeGreaterThan(0);
+    expect(included.projectedCashAtRetirement).not.toBeCloseTo(leftOut.projectedCashAtRetirement, 0);
   });
 
   it("takes education costs out of cash", () => {

@@ -49,11 +49,21 @@ export function gapBand(gap: number): string {
   return "over-500k";
 }
 
+const OPTIONAL_STEPS = new Set<StepName>(["housing loan", "CPF", "education"]);
+
+/** Step Completed props. Housing, CPF, and education also record the Yes or No answer. */
+export function stepCompletedProps(step: StepName, answer?: "yes" | "no"): Record<string, string> {
+  if (OPTIONAL_STEPS.has(step) && answer) return { step, answer };
+  return { step };
+}
+
 export function verdictAnalyticsProps(input: {
   outcome: "on-track" | "shortfall";
   gap: number;
   retirementAge: number;
   hasHousingLoan: boolean;
+  /** True when the calculation includes CPF balances. A Yes later switched to No is false. */
+  hasCpf: boolean;
   hasChildren: boolean;
   reliesOnEstimate: boolean;
   /** True only for the first verdict of this browser session. */
@@ -66,6 +76,7 @@ export function verdictAnalyticsProps(input: {
     gap_band: gapBand(input.gap),
     retirement_age_band: retirementAgeBand(input.retirementAge),
     has_housing_loan: input.hasHousingLoan,
+    has_cpf: input.hasCpf,
     has_children: input.hasChildren,
     relies_on_estimate: input.reliesOnEstimate,
     is_first_verdict: input.isFirstVerdict,

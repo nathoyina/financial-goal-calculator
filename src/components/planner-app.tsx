@@ -6,6 +6,7 @@ import { BalanceChart } from "@/components/balance-chart";
 import { NumberField } from "@/components/number-field";
 import {
   STEP_NAMES,
+  stepCompletedProps,
   track,
   shouldTrackAdjustmentAfterVerdict,
   verdictAnalyticsProps,
@@ -54,8 +55,8 @@ const FIELD_IDS: Record<string, string> = {
   extraMonthlySaving: "extra",
   annualReturn: "return",
   annualInflation: "inflation",
-  cpfAnswer: "cpf-yes",
-  loanAnswer: "loan-yes",
+  cpfAnswer: HEADING_ID,
+  loanAnswer: HEADING_ID,
   loanBalance: "loan-balance",
   loanRate: "loan-rate",
   loanYears: "loan-years",
@@ -65,7 +66,7 @@ const FIELD_IDS: Record<string, string> = {
   ra: "ra",
   ma: "ma",
   payoutAge: "payout-age",
-  childrenAnswer: "children-yes",
+  childrenAnswer: HEADING_ID,
   addChild: "add-child",
 };
 
@@ -122,6 +123,7 @@ export function PlannerApp() {
             gap: parsed.result.gap,
             retirementAge: parsed.input.retirementAge,
             hasHousingLoan: parsed.input.loan !== null,
+            hasCpf: parsed.input.includeCpf,
             hasChildren: parsed.input.children.length > 0,
             reliesOnEstimate: parsed.result.reliesOnEstimate,
             isFirstVerdict: false,
@@ -162,29 +164,26 @@ export function PlannerApp() {
 
   const fieldError = (field: string) => (error?.field === field ? error.message : undefined);
 
+  const choiceDescribedBy = (field: string, errorId: string) =>
+    fieldError(field) ? { "aria-invalid": true as const, "aria-describedby": errorId } : {};
+
   const goNext = () => {
     if (!started.current) {
       started.current = true;
       track("Calculator Started");
     }
     const answer =
-      step === 2 ? form.loanAnswer : step === 3 ? form.cpfAnswer : step === 4 ? form.childrenAnswer : "yes";
-    if (answer === "no") {
-      track("Step Skipped", { step: STEP_NAMES[step] });
-      const patch: Partial<PlanFormState> =
-        step === 2 ? { hasLoan: false } : step === 3 ? { includeCpf: false } : { children: [] };
-      update(patch, "suggestion");
-      setStep((current) => current + 1);
-      requestHeadingFocus();
-      return;
-    }
+      step === 2 ? form.loanAnswer : step === 3 ? form.cpfAnswer : step === 4 ? form.childrenAnswer : null;
     const problem = validateStep(step, form);
     if (problem) {
       track("Input Validation Error", { field: problem.field, reason: problem.reason });
       setError(problem);
       return;
     }
-    track("Step Completed", { step: STEP_NAMES[step] });
+    const stepName = STEP_NAMES[step];
+    if (stepName) {
+      track("Step Completed", stepCompletedProps(stepName, answer === "yes" || answer === "no" ? answer : undefined));
+    }
     setStep((current) => current + 1);
     requestHeadingFocus();
   };
@@ -215,7 +214,6 @@ export function PlannerApp() {
   const takeHomeNote =
     income !== null && expenses !== null && ageToday !== null
       ? takeHomeExcessSentence({
-          includeCpf: form.includeCpf,
           currentAge: ageToday,
           monthlyIncome: income,
           monthlyExpensesNow: expenses,
@@ -307,7 +305,7 @@ export function PlannerApp() {
 
           {step === 2 ? (
             <section className="flex flex-col gap-4">
-              <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
+              <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none" {...choiceDescribedBy("loanAnswer", "loan-choice-error")}>
                 Are you still paying a home loan?
               </h2>
               <YesNoChoice
@@ -343,15 +341,19 @@ export function PlannerApp() {
 
           {step === 3 ? (
             <section className="flex flex-col gap-4">
-              <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
-                Include your CPF savings?
+              <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none" {...choiceDescribedBy("cpfAnswer", "cpf-choice-error")}>
+                Add your CPF balances to the plan?
               </h2>
+              <p id="cpf-choice-hint" className="text-sm leading-5 text-muted">
+                Your CPF contributions from salary are still counted either way.
+              </p>
               <YesNoChoice
                 name="cpf"
                 value={form.cpfAnswer}
                 yesId="cpf-yes"
                 noId="cpf-no"
                 labelledBy={HEADING_ID}
+                hintId="cpf-choice-hint"
                 error={fieldError("cpfAnswer")}
                 onChange={(answer) => update({ cpfAnswer: answer, includeCpf: answer === "yes" })}
               />
@@ -373,7 +375,7 @@ export function PlannerApp() {
 
           {step === 4 ? (
             <section className="flex flex-col gap-4">
-              <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
+              <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none" {...choiceDescribedBy("childrenAnswer", "children-choice-error")}>
                 Planning for children&apos;s education?
               </h2>
               <YesNoChoice
@@ -578,7 +580,7 @@ function Verdict({
           <p className="mt-2 text-sm leading-5 text-muted">
             {input.includeCpf
               ? "A flat monthly amount from the payout age. It does not rise with inflation."
-              : "You skipped CPF, so no payout is counted."}
+              : "CPF balances are left out, so no payout is counted."}
           </p>
         </div>
         <div className="glass p-5">
@@ -662,6 +664,7 @@ function YesNoChoice({
   yesId,
   noId,
   labelledBy,
+  hintId,
   error,
   onChange,
 }: {
@@ -670,13 +673,30 @@ function YesNoChoice({
   yesId: string;
   noId: string;
   labelledBy: string;
+  hintId?: string;
   error?: string;
   onChange: (answer: "yes" | "no") => void;
 }) {
+  const yesRef = useRef<HTMLInputElement>(null);
+  const keepYesFocus = useRef(false);
   const errorId = `${name}-choice-error`;
+  const describedBy = [hintId, error ? errorId : null].filter(Boolean).join(" ") || undefined;
+
+  useLayoutEffect(() => {
+    if (!keepYesFocus.current) return;
+    keepYesFocus.current = false;
+    yesRef.current?.focus();
+  }, [value]);
+
   return (
     <div className="flex flex-col gap-3">
-      <div role="radiogroup" aria-labelledby={labelledBy} className="flex flex-wrap gap-3">
+      <div
+        role="radiogroup"
+        aria-labelledby={labelledBy}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={describedBy}
+        className="flex flex-wrap gap-3"
+      >
         {(
           [
             ["yes", "Yes", yesId],
@@ -686,21 +706,23 @@ function YesNoChoice({
           <label key={answer} className={`choice-pill pill ${value === answer ? "pill-shout" : "pill-ghost"}`}>
             <input
               id={id}
+              ref={answer === "yes" ? yesRef : undefined}
               className="sr-only"
               type="radio"
               name={name}
               value={answer}
               checked={value === answer}
-              aria-invalid={error && id === yesId ? true : undefined}
-              aria-describedby={error && id === yesId ? errorId : undefined}
-              onChange={() => onChange(answer)}
+              onChange={() => {
+                if (answer === "yes") keepYesFocus.current = true;
+                onChange(answer);
+              }}
             />
             {label}
           </label>
         ))}
       </div>
       {error ? (
-        <p id={errorId} role="alert" className="text-sm text-danger">
+        <p id={errorId} className="text-sm leading-5 text-danger">
           {error}
         </p>
       ) : null}

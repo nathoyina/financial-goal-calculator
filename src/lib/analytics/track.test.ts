@@ -5,6 +5,7 @@ import {
   getTrackedEvents,
   retirementAgeBand,
   shouldTrackAdjustmentAfterVerdict,
+  stepCompletedProps,
   track,
   verdictAnalyticsProps,
 } from "./track";
@@ -20,6 +21,7 @@ describe("analytics", () => {
         gap: -220_000,
         retirementAge: 40,
         hasHousingLoan: true,
+        hasCpf: false,
         hasChildren: false,
         reliesOnEstimate: true,
         isFirstVerdict: true,
@@ -33,6 +35,7 @@ describe("analytics", () => {
       gap_band: "100k-to-500k",
       retirement_age_band: "under-50",
       has_housing_loan: true,
+      has_cpf: false,
       has_children: false,
       relies_on_estimate: true,
       is_first_verdict: true,
@@ -43,11 +46,17 @@ describe("analytics", () => {
       gap: 0,
       retirementAge: 65,
       hasHousingLoan: false,
+      hasCpf: true,
       hasChildren: false,
       reliesOnEstimate: false,
       isFirstVerdict: false,
       spendingExceedsTakeHome: false,
     }).is_first_verdict).toBe(false);
+    expect(stepCompletedProps("retirement age")).toEqual({ step: "retirement age" });
+    expect(stepCompletedProps("housing loan", "no")).toEqual({ step: "housing loan", answer: "no" });
+    expect(stepCompletedProps("CPF", "yes")).toEqual({ step: "CPF", answer: "yes" });
+    expect(stepCompletedProps("education", "no")).toEqual({ step: "education", answer: "no" });
+    expect(JSON.stringify(getTrackedEvents())).not.toMatch(/Step Skipped/);
     expect(JSON.stringify(verdict.props)).not.toMatch(/220000|salary|balance|instalment/i);
     expect(verdict.props.relies_on_estimate).toBe(true);
 

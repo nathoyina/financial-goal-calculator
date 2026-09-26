@@ -354,7 +354,7 @@ function simulate(input: PlanInput): Simulation {
     const cpfLife =
       cpf && cpf.payoutStartMonth !== null && month >= cpf.payoutStartMonth ? cpf.monthlyPayout : 0;
     const wage = wageAtMonth(month);
-    const employeeCpf = input.includeCpf ? monthlyContributions(age, wage, calendarYearAtMonth(month)).employee : 0;
+    const employeeCpf = monthlyContributions(age, wage, calendarYearAtMonth(month)).employee;
     const sweepIncome = sweepMonth === month && cpf && !swept ? cpf.oaWithdrawn : 0;
     if (sweepMonth === month && cpf) swept = true;
 
@@ -411,9 +411,7 @@ function simulate(input: PlanInput): Simulation {
   }
 
   const firstLoan = input.loan?.paidFrom === "cash" ? (schedule[0]?.payment ?? 0) : 0;
-  const employeeNow = input.includeCpf
-    ? monthlyContributions(input.currentAge, input.monthlyIncome, calendarYearAtMonth(0)).employee
-    : 0;
+  const employeeNow = monthlyContributions(input.currentAge, input.monthlyIncome, calendarYearAtMonth(0)).employee;
   const lifeAlreadyPaying = cpf?.payoutStartMonth === 0 ? cpf.monthlyPayout : 0;
   const monthlySavingToday =
     input.monthlyIncome -

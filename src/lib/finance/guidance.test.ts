@@ -17,7 +17,7 @@ const base: PlanInput = {
   retirementAge: 42,
   lifeExpectancy: 44,
   cashSavings: 0,
-  monthlyIncome: 3_000,
+  monthlyIncome: 3_750,
   annualIncomeGrowth: 0,
   monthlyExpensesNow: 2_000,
   monthlyRetirementSpendingToday: 1_000,
@@ -75,26 +75,21 @@ describe("years until retirement", () => {
 
 describe("take-home pay", () => {
   it("uses CPF age bands, the wage ceiling, and the below-S$750 rule", () => {
-    expect(takeHomePay({ includeCpf: true, currentAge: 35, monthlyIncome: 6_000 })).toBe(4_800);
+    expect(takeHomePay({ currentAge: 35, monthlyIncome: 6_000 })).toBe(4_800);
     expect(
       takeHomeExcessSentence({
-        includeCpf: true,
         currentAge: 35,
         monthlyIncome: 6_000,
         monthlyExpensesNow: 5_000,
       }),
     ).toBe("That's about S$200 more than your take-home pay of S$4,800.");
-    expect(spendingExceedsTakeHome({ includeCpf: true, currentAge: 35, monthlyIncome: 6_000, monthlyExpensesNow: 4_800 })).toBe(
-      false,
-    );
+    expect(spendingExceedsTakeHome({ currentAge: 35, monthlyIncome: 6_000, monthlyExpensesNow: 4_800 })).toBe(false);
 
-    expect(takeHomePay({ includeCpf: true, currentAge: 35, monthlyIncome: 9_000 })).toBe(7_400);
-    expect(takeHomePay({ includeCpf: true, currentAge: 35, monthlyIncome: 700 })).toBe(700);
-    expect(takeHomePay({ includeCpf: true, currentAge: 57, monthlyIncome: 8_000 })).toBe(6_560);
-    expect(takeHomePay({ includeCpf: false, currentAge: 35, monthlyIncome: 6_000 })).toBe(6_000);
-    expect(
-      spendingExceedsTakeHome({ includeCpf: false, currentAge: 35, monthlyIncome: 6_000, monthlyExpensesNow: 5_000 }),
-    ).toBe(false);
+    expect(takeHomePay({ currentAge: 35, monthlyIncome: 9_000 })).toBe(7_400);
+    expect(takeHomePay({ currentAge: 35, monthlyIncome: 700 })).toBe(700);
+    expect(takeHomePay({ currentAge: 57, monthlyIncome: 8_000 })).toBe(6_560);
+    expect(takeHomePay({ currentAge: 35, monthlyIncome: 6_000 })).toBe(4_800);
+    expect(spendingExceedsTakeHome({ currentAge: 35, monthlyIncome: 6_000, monthlyExpensesNow: 5_000 })).toBe(true);
   });
 });
 
@@ -217,13 +212,67 @@ describe("optional yes or no", () => {
     expect(unanswered.ok && unanswered.input.loan).toBeNull();
     expect(unanswered.ok && unanswered.input.children).toEqual([]);
   });
+
+  it("ignores figures while No is selected and uses them again when Yes is chosen", () => {
+    const loanFields = {
+      ...DEFAULT_PLAN_FORM,
+      hasLoan: true,
+      loanBalance: "12000",
+      loanRate: "0",
+      loanYears: "1",
+      loanPaidFrom: "cash" as const,
+    };
+    const loanYes = parsePlanForm({ ...loanFields, loanAnswer: "yes" });
+    const loanNo = parsePlanForm({ ...loanFields, loanAnswer: "no" });
+    const loanAgain = parsePlanForm({ ...loanFields, loanAnswer: "yes" });
+    expect(loanYes.ok && loanNo.ok && loanAgain.ok).toBe(true);
+    if (loanYes.ok && loanNo.ok && loanAgain.ok) {
+      expect(loanYes.input.loan?.balance).toBe(12_000);
+      expect(loanNo.input.loan).toBeNull();
+      expect(loanAgain.input.loan?.balance).toBe(12_000);
+      expect(loanNo.result.monthlySavingToday).toBeGreaterThan(loanYes.result.monthlySavingToday);
+      expect(loanAgain.result.monthlySavingToday).toBe(loanYes.result.monthlySavingToday);
+      expect(loanAgain.result.gap).toBeCloseTo(loanYes.result.gap, 4);
+    }
+
+    const cpfFields = { ...DEFAULT_PLAN_FORM, includeCpf: true, oa: "400000" };
+    const cpfYes = parsePlanForm({ ...cpfFields, cpfAnswer: "yes" });
+    const cpfNo = parsePlanForm({ ...cpfFields, cpfAnswer: "no" });
+    const cpfAgain = parsePlanForm({ ...cpfFields, cpfAnswer: "yes" });
+    expect(cpfYes.ok && cpfNo.ok && cpfAgain.ok).toBe(true);
+    if (cpfYes.ok && cpfNo.ok && cpfAgain.ok) {
+      expect(cpfYes.input.includeCpf).toBe(true);
+      expect(cpfYes.input.cpf.oa).toBe(400_000);
+      expect(cpfNo.input.includeCpf).toBe(false);
+      expect(cpfNo.input.cpf.oa).toBe(0);
+      expect(cpfNo.result.cpfLifeMonthly).toBe(0);
+      expect(cpfNo.result.projectedCashAtRetirement).not.toBeCloseTo(cpfYes.result.projectedCashAtRetirement, 0);
+      expect(cpfAgain.input.cpf.oa).toBe(400_000);
+      expect(cpfAgain.result.cpfLifeMonthly).toBeCloseTo(cpfYes.result.cpfLifeMonthly, 4);
+    }
+
+    const withChild = {
+      ...DEFAULT_PLAN_FORM,
+      children: [child],
+    };
+    const childYes = parsePlanForm({ ...withChild, childrenAnswer: "yes" });
+    const childNo = parsePlanForm({ ...withChild, childrenAnswer: "no" });
+    const childAgain = parsePlanForm({ ...withChild, childrenAnswer: "yes" });
+    expect(childYes.ok && childNo.ok && childAgain.ok).toBe(true);
+    if (childYes.ok && childNo.ok && childAgain.ok) {
+      expect(childYes.input.children).toHaveLength(1);
+      expect(childNo.input.children).toEqual([]);
+      expect(childAgain.input.children).toEqual(childYes.input.children);
+      expect(childNo.result.projectedCashAtRetirement).toBeGreaterThan(childYes.result.projectedCashAtRetirement);
+      expect(childAgain.result.gap).toBeCloseTo(childYes.result.gap, 4);
+    }
+  });
 });
 
 describe("salary cap note", () => {
   it("adds the flat-ceiling sentence only when a projected salary rises above S$8,000", () => {
     expect(
       projectedSalaryExceedsCeiling({
-        includeCpf: true,
         currentAge: 35,
         retirementAge: 55,
         monthlyIncome: 6_000,
@@ -232,7 +281,6 @@ describe("salary cap note", () => {
     ).toBe(true);
     expect(
       projectedSalaryExceedsCeiling({
-        includeCpf: true,
         currentAge: 40,
         retirementAge: 42,
         monthlyIncome: 8_000,
@@ -241,13 +289,12 @@ describe("salary cap note", () => {
     ).toBe(false);
     expect(
       projectedSalaryExceedsCeiling({
-        includeCpf: false,
         currentAge: 40,
         retirementAge: 42,
         monthlyIncome: 20_000,
         annualIncomeGrowth: 0,
       }),
-    ).toBe(false);
+    ).toBe(true);
 
     const above = calculatePlan({
       ...base,
@@ -268,8 +315,8 @@ describe("salary cap note", () => {
     expect(under.salaryCapApplies).toBe(false);
     expect(estimateNotice(under)).not.toContain("salary cap");
 
-    const skipped = calculatePlan({ ...base, monthlyIncome: 9_000, includeCpf: false });
-    expect(skipped.salaryCapApplies).toBe(false);
-    expect(estimateNotice(skipped)).toBeNull();
+    const withoutBalances = calculatePlan({ ...base, monthlyIncome: 9_000, includeCpf: false });
+    expect(withoutBalances.salaryCapApplies).toBe(true);
+    expect(estimateNotice(withoutBalances)).toContain("The CPF salary cap after 2026 is assumed to stay at S$8,000.");
   });
 });
