@@ -5,6 +5,7 @@ import { EstimateTag } from "@/components/estimate-tag";
 import { BalanceChart } from "@/components/balance-chart";
 import { ChildEducationCard } from "@/components/child-education";
 import { NumberField } from "@/components/number-field";
+import { SuggestionChoices, VerdictWithPreview } from "@/components/suggestion-preview";
 import {
   STEP_NAMES,
   stepCompletedProps,
@@ -33,6 +34,13 @@ import {
 import { educationStepAnalytics } from "@/lib/finance/education-choice";
 import { pressOptionalButton, showsContinue } from "@/lib/finance/optional-step";
 import { estimateNotice } from "@/lib/finance/plan";
+import {
+  applySuggestion,
+  dismissSuggestion,
+  tapSuggestion,
+  type GapSuggestionType,
+  type SuggestionPreview,
+} from "@/lib/finance/suggestion-preview";
 import {
   createChildForm,
   DEFAULT_PLAN_FORM,
@@ -503,6 +511,23 @@ function Verdict({
   parsed: ReturnType<typeof parsePlanForm> | null;
   onApply: (patch: Partial<PlanFormState>, source?: "user" | "suggestion") => void;
 }) {
+  const [preview, setPreview] = useState<SuggestionPreview | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const suggestionButtons = useRef<Partial<Record<GapSuggestionType, HTMLButtonElement | null>>>({});
+  const returnFocus = useRef<GapSuggestionType | null>(null);
+
+  useEffect(() => {
+    if (preview) {
+      previewRef.current?.scrollIntoView({ block: "nearest" });
+      previewRef.current?.focus();
+      return;
+    }
+    const type = returnFocus.current;
+    if (!type) return;
+    returnFocus.current = null;
+    suggestionButtons.current[type]?.focus();
+  }, [preview]);
+
   if (!parsed || !parsed.ok) {
     return (
       <section className="flex flex-col gap-3">
@@ -550,8 +575,37 @@ function Verdict({
           : `Savings run out at age ${formatAge(result.moneyRunsOutAge)}.`
       }`;
 
+  const previewSuggestion = (type: GapSuggestionType) => {
+    const step = tapSuggestion({ form, preview }, type);
+    if (step.focus === "suggestion") returnFocus.current = type;
+    else returnFocus.current = null;
+    if (step.event) track(step.event.name, { type: step.event.type });
+    setPreview(step.view.preview);
+  };
+
+  const dismissPreview = () => {
+    if (!preview) return;
+    returnFocus.current = preview.type;
+    setPreview(dismissSuggestion({ form, preview }).view.preview);
+  };
+
+  const applyPreview = () => {
+    if (!preview) return;
+    const step = applySuggestion({ form, preview });
+    returnFocus.current = null;
+    if (step.event) track(step.event.name, { type: step.event.type });
+    setPreview(null);
+    onApply(preview.patch, "suggestion");
+  };
+
   return (
     <section className="flex flex-col gap-5" aria-live="polite">
+      <VerdictWithPreview
+        preview={preview}
+        panelRef={previewRef}
+        onApply={applyPreview}
+        onDismiss={dismissPreview}
+        verdict={
       <div className="glass p-5 sm:p-8">
         <p className={result.canRetire ? "status-chip status-on-track" : "status-chip status-shortfall"}>
           {result.canRetire ? <CheckIcon /> : <ShortfallIcon />}
@@ -565,6 +619,8 @@ function Verdict({
         {growthSentence ? <p className="mt-3 text-base leading-7 text-white">{growthSentence}</p> : null}
         {notice ? <p className="mt-3 text-sm leading-6 text-muted">{notice}</p> : null}
       </div>
+        }
+      />
 
       <dl className="grid gap-3 sm:grid-cols-2">
         <div className="glass p-5">
@@ -613,28 +669,14 @@ function Verdict({
       {!result.canRetire ? (
         <div className="flex flex-col gap-3">
           <h3 className="text-lg font-bold">What would fix it</h3>
-          {result.earliestRetirementAge !== null ? (
-            <button type="button" className="pill pill-shout text-left" onClick={() => { track("Gap Suggestion Applied", { type: "earliest-age" }); onApply({ retirementAge: String(result.earliestRetirementAge) }, "suggestion"); }}>
-              Retire at {result.earliestRetirementAge} instead
-            </button>
-          ) : (
-            <p className="text-sm leading-6 text-muted">No later age before the planning age makes this spending last.</p>
-          )}
-          {result.extraMonthlySaving !== null ? (
-            <button type="button" className="pill pill-ghost text-left" onClick={() => { track("Gap Suggestion Applied", { type: "extra-saving" }); const currentExtra = parseDecimal(form.extraMonthlySaving) ?? input.extraMonthlySaving; onApply({ extraMonthlySaving: String(Math.ceil(currentExtra + result.extraMonthlySaving!)) }, "suggestion"); }}>
-              Save {formatMoney(result.extraMonthlySaving)} more each month
-            </button>
-          ) : null}
-          {result.spendingCutNow !== null && Math.round(result.spendingCutNow) >= 1 ? (
-            <button type="button" className="pill pill-ghost text-left" onClick={() => { track("Gap Suggestion Applied", { type: "spend-less-now" }); onApply({ monthlyExpensesNow: String(Math.max(0, Math.floor(input.monthlyExpensesNow - result.spendingCutNow!))) }, "suggestion"); }}>
-              Spend {formatMoney(result.spendingCutNow)} less each month now
-            </button>
-          ) : null}
-          {result.spendingCutToday !== null ? (
-            <button type="button" className="pill pill-ghost text-left" onClick={() => { track("Gap Suggestion Applied", { type: "spending-cut" }); onApply({ monthlyRetirementSpendingToday: String(Math.max(0, Math.floor(input.monthlyRetirementSpendingToday - result.spendingCutToday!))) }, "suggestion"); }}>
-              Spend {formatMoney(result.spendingCutToday)} less each month in retirement
-            </button>
-          ) : null}
+          <SuggestionChoices
+            result={result}
+            openType={preview?.type ?? null}
+            onPreview={previewSuggestion}
+            registerButton={(type, node) => {
+              suggestionButtons.current[type] = node;
+            }}
+          />
         </div>
       ) : null}
 
