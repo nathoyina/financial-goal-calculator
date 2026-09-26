@@ -1,5 +1,8 @@
 import { CPF_INTEREST } from "../cpf/constants";
 import { calculatePlan, type PlanInput, type PlanResult } from "./plan";
+import { parseDecimal } from "./parse";
+
+export { parseDecimal };
 
 export interface ChildForm {
   id: string;
@@ -9,6 +12,8 @@ export interface ChildForm {
   yearlyCostToday: string;
   path: "local" | "overseas" | "other";
 }
+
+export type OptionalAnswer = "yes" | "no" | null;
 
 export interface PlanFormState {
   currentAge: string;
@@ -23,17 +28,23 @@ export interface PlanFormState {
   annualInflation: string;
   extraMonthlySaving: string;
   includeCpf: boolean;
+  /** Null until the person answers the CPF question. */
+  cpfAnswer: OptionalAnswer;
   oa: string;
   sa: string;
   ra: string;
   ma: string;
   payoutAge: string;
   hasLoan: boolean;
+  /** Null until the person answers the housing question. */
+  loanAnswer: OptionalAnswer;
   loanBalance: string;
   loanRate: string;
   loanYears: string;
   loanInstalment: string;
   loanPaidFrom: "cash" | "oa";
+  /** Null until the person answers the education question. */
+  childrenAnswer: OptionalAnswer;
   children: ChildForm[];
 }
 
@@ -50,38 +61,132 @@ export const DEFAULT_PLAN_FORM: PlanFormState = {
   annualInflation: "2.5",
   extraMonthlySaving: "0",
   includeCpf: true,
+  cpfAnswer: null,
   oa: "40000",
   sa: "25000",
   ra: "0",
   ma: "15000",
   payoutAge: "65",
   hasLoan: false,
+  loanAnswer: null,
   loanBalance: "0",
   loanRate: (CPF_INTEREST.hdbConcessionary.value * 100).toFixed(1),
   loanYears: "20",
   loanInstalment: "",
   loanPaidFrom: "oa",
+  childrenAnswer: null,
   children: [],
 };
 
-export function parseDecimal(raw: string): number | null {
-  let cleaned = raw.trim().replace(/,/g, "").replace(/%$/, "").trim();
-  if (cleaned.startsWith(".")) cleaned = `0${cleaned}`;
-  if (cleaned.startsWith("-.")) cleaned = `-0${cleaned.slice(1)}`;
-  if (!/^-?\d+(\.\d+)?$/.test(cleaned)) return null;
-  const value = Number(cleaned);
-  return Number.isFinite(value) ? value : null;
-}
+export type ValidationReason = "missing" | "format" | "out-of-range";
 
 export interface FieldError {
   field: string;
   message: string;
+  reason: ValidationReason;
+}
+
+function readNumber(raw: string, field: string, label: string): number | FieldError {
+  if (raw.trim() === "") return { field, message: `Enter a number for ${label}.`, reason: "missing" };
+  const value = parseDecimal(raw);
+  if (value === null) return { field, message: `Enter a number for ${label}.`, reason: "format" };
+  return value;
+}
+
+function isFieldError(value: number | FieldError): value is FieldError {
+  return typeof value !== "number";
+}
+
+/** Step checks used by Continue. Invalid ages and blank fields cannot be submitted. */
+export function validateStep(step: number, form: PlanFormState): FieldError | null {
+  if (step === 0) {
+    const current = readNumber(form.currentAge, "currentAge", "current age");
+    if (isFieldError(current)) return current;
+    const retire = readNumber(form.retirementAge, "retirementAge", "retirement age");
+    if (isFieldError(retire)) return retire;
+    const life = readNumber(form.lifeExpectancy, "lifeExpectancy", "life expectancy");
+    if (isFieldError(life)) return life;
+    if (current < 0 || current > 120) {
+      return { field: "currentAge", message: "Current age must be between 0 and 120.", reason: "out-of-range" };
+    }
+    if (retire <= current) {
+      return {
+        field: "retirementAge",
+        message: "Retirement age has to be after your age today.",
+        reason: "out-of-range",
+      };
+    }
+    if (life <= retire) {
+      return {
+        field: "lifeExpectancy",
+        message: "Life expectancy has to be after the retirement age.",
+        reason: "out-of-range",
+      };
+    }
+  }
+  if (step === 1) {
+    const fields: [keyof PlanFormState, string][] = [
+      ["monthlyIncome", "monthly income"],
+      ["annualIncomeGrowth", "income growth"],
+      ["monthlyExpensesNow", "monthly expenses"],
+      ["monthlyRetirementSpendingToday", "retirement spending"],
+      ["cashSavings", "cash savings"],
+      ["extraMonthlySaving", "extra monthly saving"],
+      ["annualReturn", "annual return"],
+      ["annualInflation", "inflation"],
+    ];
+    for (const [key, label] of fields) {
+      const value = readNumber(String(form[key]), key, label);
+      if (isFieldError(value)) return value;
+    }
+  }
+  if (step === 2 && form.loanAnswer === "yes") {
+    const balance = readNumber(form.loanBalance, "loanBalance", "the loan balance");
+    if (isFieldError(balance)) return balance;
+    const rate = readNumber(form.loanRate, "loanRate", "the loan interest rate");
+    if (isFieldError(rate)) return rate;
+    const years = readNumber(form.loanYears, "loanYears", "how many years are left");
+    if (isFieldError(years)) return years;
+    if (form.loanInstalment.trim() !== "") {
+      const instalment = readNumber(form.loanInstalment, "loanInstalment", "the instalment");
+      if (isFieldError(instalment)) {
+        return { field: "loanInstalment", message: "Enter a number for the instalment, or leave it blank.", reason: instalment.reason };
+      }
+    }
+  }
+  if (step === 3 && form.cpfAnswer === "yes") {
+    const fields: [keyof PlanFormState, string][] = [
+      ["oa", "Ordinary Account"],
+      ["sa", "Special Account"],
+      ["ra", "Retirement Account"],
+      ["ma", "MediSave"],
+      ["payoutAge", "CPF LIFE payout age"],
+    ];
+    for (const [key, label] of fields) {
+      const value = readNumber(String(form[key]), key, label);
+      if (isFieldError(value)) return value;
+    }
+  }
+  if (step === 4 && form.childrenAnswer === "yes") {
+    if (form.children.length === 0) {
+      return { field: "addChild", message: "Add a child, or choose No.", reason: "missing" };
+    }
+    for (const child of form.children) {
+      const age = readNumber(child.currentAge, "childAge", "the child’s age");
+      if (isFieldError(age)) return age;
+      const start = readNumber(child.startAge, "childStartAge", "the age costs start");
+      if (isFieldError(start)) return start;
+      const years = readNumber(child.years, "childYears", "how many years of costs to plan for");
+      if (isFieldError(years)) return years;
+      const cost = readNumber(child.yearlyCostToday, "childCost", "the yearly education cost");
+      if (isFieldError(cost)) return cost;
+    }
+  }
+  return null;
 }
 
 function required(raw: string, field: string, label: string): number | FieldError {
-  const value = parseDecimal(raw);
-  if (value === null) return { field, message: `Enter a number for ${label}.` };
-  return value;
+  return readNumber(raw, field, label);
 }
 
 export function parsePlanForm(
@@ -114,8 +219,12 @@ export function parsePlanForm(
   const extraMonthlySaving = required(form.extraMonthlySaving, "extraMonthlySaving", "extra monthly saving");
   if (typeof extraMonthlySaving !== "number") return { ok: false, error: extraMonthlySaving };
 
+  const includeCpf = form.cpfAnswer === "yes" ? true : form.cpfAnswer === "no" ? false : form.includeCpf;
+  const hasLoan = form.loanAnswer === "yes" ? true : form.loanAnswer === "no" ? false : form.hasLoan;
+  const childForms = form.childrenAnswer === "no" ? [] : form.children;
+
   let cpf: PlanInput["cpf"] = { oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 };
-  if (form.includeCpf) {
+  if (includeCpf) {
     const oa = required(form.oa, "oa", "Ordinary Account");
     if (typeof oa !== "number") return { ok: false, error: oa };
     const sa = required(form.sa, "sa", "Special Account");
@@ -130,7 +239,7 @@ export function parsePlanForm(
   }
 
   let loan: PlanInput["loan"] = null;
-  if (form.hasLoan) {
+  if (hasLoan) {
     const balance = required(form.loanBalance, "loanBalance", "loan balance");
     if (typeof balance !== "number") return { ok: false, error: balance };
     const rate = required(form.loanRate, "loanRate", "loan interest");
@@ -141,7 +250,12 @@ export function parsePlanForm(
     let monthlyInstalment: number | undefined;
     if (instalmentRaw !== "") {
       const parsed = parseDecimal(instalmentRaw);
-      if (parsed === null) return { ok: false, error: { field: "loanInstalment", message: "Enter a number for the instalment." } };
+      if (parsed === null) {
+        return {
+          ok: false,
+          error: { field: "loanInstalment", message: "Enter a number for the instalment.", reason: "format" },
+        };
+      }
       monthlyInstalment = parsed;
     }
     loan = {
@@ -154,7 +268,7 @@ export function parsePlanForm(
   }
 
   const children: PlanInput["children"] = [];
-  for (const child of form.children) {
+  for (const child of childForms) {
     const childAge = required(child.currentAge, "childAge", "the child’s age");
     if (typeof childAge !== "number") return { ok: false, error: childAge };
     const startAge = required(child.startAge, "childStartAge", "the age costs start");
@@ -178,13 +292,15 @@ export function parsePlanForm(
     annualReturn: annualReturn / 100,
     annualInflation: annualInflation / 100,
     extraMonthlySaving,
-    includeCpf: form.includeCpf,
+    includeCpf,
     cpf,
     loan,
     children,
   };
 
   const result = calculatePlan(input);
-  if (!result.valid) return { ok: false, error: { field: "form", message: result.errors[0] ?? "Check the inputs." } };
+  if (!result.valid) {
+    return { ok: false, error: { field: "form", message: result.errors[0] ?? "Check the inputs.", reason: "out-of-range" } };
+  }
   return { ok: true, input, result };
 }

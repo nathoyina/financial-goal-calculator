@@ -51,7 +51,7 @@ select:focus-visible {
 }
 
 .wave-drift {
-  animation: wave-drift 9s ease-in-out infinite alternate;
+  animation: wave-drift 3s ease-in-out 2 alternate forwards;
 }
 
 @keyframes wave-drift {
@@ -100,6 +100,51 @@ html[data-typing="true"] .step-rise {
   backdrop-filter: blur(24px);
 }
 
+.glass-surplus {
+  border: 2px solid var(--yellow);
+}
+
+.glass-gap {
+  border: 2px dashed #fff;
+}
+
+.status-chip {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 2rem;
+  border-radius: 9999px;
+  padding: 0.3rem 0.85rem 0.3rem 0.55rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.status-on-track {
+  background: var(--yellow);
+  color: var(--onyx);
+}
+
+.status-shortfall {
+  border: 2px solid var(--yellow);
+  background: transparent;
+  color: #fff;
+}
+
+.caution-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  border: 1px solid var(--yellow);
+  border-radius: 1rem;
+  background: #262626;
+  padding: 0.75rem 1rem;
+  color: #fff;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
 .pill {
   min-height: 44px;
   border-radius: 9999px;
@@ -118,6 +163,19 @@ html[data-typing="true"] .step-rise {
   border: 2px solid rgb(255 255 255 / 0.45);
   background: transparent;
   color: #fff;
+}
+
+.choice-pill {
+  cursor: pointer;
+}
+
+.choice-pill:focus-visible {
+  outline: 2px solid var(--yellow);
+  outline-offset: 3px;
+}
+
+.choice-pill.pill-shout:focus-visible {
+  outline-color: #fff;
 }
 
 @media (prefers-reduced-motion: no-preference) {

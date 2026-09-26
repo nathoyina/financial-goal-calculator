@@ -7,6 +7,9 @@ export function NumberField({
   prefix,
   suffix,
   error,
+  note,
+  noteTone = "neutral",
+  describedByExtra,
 }: {
   id: string;
   label: string;
@@ -16,15 +19,23 @@ export function NumberField({
   prefix?: string;
   suffix?: string;
   error?: string;
+  note?: string | null;
+  noteTone?: "neutral" | "caution";
+  describedByExtra?: string;
 }) {
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
-  const describedBy = error ? `${hintId} ${errorId}` : hintId;
+  const noteId = `${id}-note`;
+  const unit = accessibleUnit(prefix, suffix);
+  const describedBy = [describedByExtra, hintId, note ? noteId : null, error ? errorId : null]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <label htmlFor={id} className="text-sm font-medium text-white">
         {label}
+        {unit ? <span className="sr-only">, {unit}</span> : null}
       </label>
       <div
         className={`field-shell flex h-12 items-center rounded-full border bg-void ${
@@ -56,6 +67,11 @@ export function NumberField({
       <p id={hintId} className="text-sm leading-5 text-muted">
         {hint}
       </p>
+      {note ? (
+        <p id={noteId} aria-live="polite" className={`text-sm leading-5 ${noteTone === "caution" ? "text-yellow" : "text-white"}`}>
+          {note}
+        </p>
+      ) : null}
       {error ? (
         <p id={errorId} className="text-sm leading-5 text-danger">
           {error}
@@ -63,4 +79,13 @@ export function NumberField({
       ) : null}
     </div>
   );
+}
+
+function accessibleUnit(prefix?: string, suffix?: string): string | null {
+  if (prefix === "S$") return "Singapore dollars";
+  if (suffix === "%") return "percent";
+  if (suffix === "years") return "years";
+  if (prefix) return prefix;
+  if (suffix) return suffix;
+  return null;
 }
