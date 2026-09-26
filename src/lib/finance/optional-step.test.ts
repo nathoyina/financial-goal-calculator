@@ -10,6 +10,8 @@ const child = {
   yearlyCostToday: "12000",
   educationChoice: "custom" as const,
   overseasPreset: null,
+  startedFrom: "custom" as const,
+  startedOverseas: null,
   presetEdited: false,
 };
 
@@ -179,8 +181,6 @@ describe("optional yes or no choice", () => {
     expect(first.completed).toEqual({
       step: "education",
       answer: "no",
-      education_choice: "custom",
-      preset_edited: "no",
     });
     expect(second.completed).toBeNull();
     expect(second.nextStep).toBeNull();

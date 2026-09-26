@@ -18,6 +18,8 @@ export function createChildForm(id: string): ChildForm {
     yearlyCostToday: "",
     educationChoice: null,
     overseasPreset: null,
+    startedFrom: null,
+    startedOverseas: null,
     presetEdited: false,
   };
 }

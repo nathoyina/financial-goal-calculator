@@ -162,6 +162,8 @@ describe("optional yes or no", () => {
     yearlyCostToday: "12000",
     educationChoice: "custom" as const,
     overseasPreset: null,
+    startedFrom: "custom" as const,
+    startedOverseas: null,
     presetEdited: false,
   };
 

@@ -18,8 +18,15 @@ export interface EducationChildState {
   yearlyCostToday: string;
   /** Null until Local, Overseas, or Custom is pressed. */
   educationChoice: EducationChoice | null;
-  /** Null until a country is pressed. Only set while Overseas is the choice. */
+  /** Null until a country is pressed. Cleared when the screen leaves Overseas. */
   overseasPreset: OverseasPresetId | null;
+  /**
+   * Preset the person started from. Custom only if they pressed Custom.
+   * An edit does not change this, even though the screen then shows Custom.
+   */
+  startedFrom: EducationChoice | null;
+  /** Kept after an edit hides the country row. Set only when startedFrom is overseas. */
+  startedOverseas: OverseasPresetId | null;
   /** True after the yearly cost or the years were edited away from a preset. */
   presetEdited: boolean;
 }
@@ -46,6 +53,8 @@ export function applyStudyChoice<T extends EducationChildState>(child: T, choice
       ...child,
       educationChoice: "local",
       overseasPreset: null,
+      startedFrom: "local",
+      startedOverseas: null,
       yearlyCostToday: String(EDUCATION_PRESETS.local.yearlyCostSgd),
       years: String(EDUCATION_PRESETS.local.years),
       presetEdited: false,
@@ -56,6 +65,8 @@ export function applyStudyChoice<T extends EducationChildState>(child: T, choice
       ...child,
       educationChoice: "custom",
       overseasPreset: null,
+      startedFrom: "custom",
+      startedOverseas: null,
       presetEdited: false,
     };
   }
@@ -63,6 +74,8 @@ export function applyStudyChoice<T extends EducationChildState>(child: T, choice
     ...child,
     educationChoice: "overseas",
     overseasPreset: null,
+    startedFrom: null,
+    startedOverseas: null,
     yearlyCostToday: "",
     years: "",
     presetEdited: false,
@@ -75,13 +88,18 @@ export function applyOverseasPreset<T extends EducationChildState>(child: T, pre
     ...child,
     educationChoice: "overseas",
     overseasPreset: preset,
+    startedFrom: "overseas",
+    startedOverseas: preset,
     yearlyCostToday: String(figures.yearlyCostSgd),
     years: String(figures.years),
     presetEdited: false,
   };
 }
 
-/** Editing the yearly cost or the years leaves the preset and drops the estimate. */
+/**
+ * Editing the yearly cost or the years shows Custom and drops the estimate.
+ * The starting preset and overseas destination stay, so tracking can still name them.
+ */
 export function editEducationFigure<T extends EducationChildState>(
   child: T,
   field: "years" | "yearlyCostToday",
@@ -156,25 +174,48 @@ export function educationTotalCopy(child: EducationChildState): EducationTotalCo
   };
 }
 
-export interface EducationStepAnalytics {
+export interface ChildEducationTracking {
   education_choice: EducationChoice;
   preset_edited: "yes" | "no";
+  overseas_destination?: OverseasPresetId;
 }
 
 /**
- * One choice for the step. Children who all picked the same pill report that
- * pill. A mix, or no child, is custom. preset_edited is yes when any child
- * changed a preset figure. Amounts are not included.
+ * Tracking for one child. education_choice is the preset they started from.
+ * Custom means they pressed Custom. overseas_destination is sent only for an
+ * overseas start. Amounts are not included.
+ */
+export function childEducationTracking(
+  child: Pick<EducationChildState, "startedFrom" | "startedOverseas" | "presetEdited">,
+): ChildEducationTracking | null {
+  if (child.startedFrom === null) return null;
+  const tracked: ChildEducationTracking = {
+    education_choice: child.startedFrom,
+    preset_edited: child.presetEdited ? "yes" : "no",
+  };
+  if (child.startedFrom === "overseas" && child.startedOverseas) {
+    tracked.overseas_destination = child.startedOverseas;
+  }
+  return tracked;
+}
+
+/**
+ * Step Completed properties for every child who has a starting choice.
+ * One child uses education_choice, preset_edited, and overseas_destination.
+ * Further children use the same names with _2, _3, and so on. No amounts.
  */
 export function educationStepAnalytics(
-  children: readonly Pick<EducationChildState, "educationChoice" | "presetEdited">[],
-): EducationStepAnalytics {
-  const preset_edited = children.some((child) => child.presetEdited) ? "yes" : "no";
-  const choices = children.map((child) => child.educationChoice ?? "custom");
-  const first = choices[0];
-  const unanimous = choices.length > 0 && choices.every((choice) => choice === first);
-  return {
-    education_choice: unanimous && first ? first : "custom",
-    preset_edited,
-  };
+  children: readonly Pick<EducationChildState, "startedFrom" | "startedOverseas" | "presetEdited">[],
+): Record<string, string> {
+  const tracked = children
+    .map((child) => childEducationTracking(child))
+    .filter((item): item is ChildEducationTracking => item !== null);
+  const props: Record<string, string> = {};
+  tracked.forEach((item, index) => {
+    const suffix = index === 0 ? "" : `_${index + 1}`;
+    props[`education_choice${suffix}`] = item.education_choice;
+    props[`preset_edited${suffix}`] = item.preset_edited;
+    if (item.overseas_destination) props[`overseas_destination${suffix}`] = item.overseas_destination;
+  });
+  return props;
 }
