@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculatePlan, estimateNotice, type PlanInput } from "./plan";
-import { DEFAULT_PLAN_FORM, parsePlanForm, validateStep } from "./plan-form";
+import { DEFAULT_PLAN_FORM, parsePlanForm, skipDiscardNote, skipLabel, stepWouldDiscardEntries, validateStep } from "./plan-form";
 import { parseDecimal } from "./parse";
 import {
   cpfLifeDollarYear,
@@ -155,6 +155,31 @@ describe("CPF LIFE in today's money", () => {
         monthlyPayout: 950,
       }),
     ).toBe(950);
+  });
+});
+
+describe("skip versus continue", () => {
+  it("names what the secondary button does and notices entries it would drop", () => {
+    expect(skipLabel(2)).toBe("I don't have a home loan");
+    expect(skipLabel(3)).toBe("Leave CPF out");
+    expect(skipLabel(4)).toBe("No children to plan for");
+
+    expect(stepWouldDiscardEntries(2, DEFAULT_PLAN_FORM)).toBe(false);
+    expect(stepWouldDiscardEntries(2, { ...DEFAULT_PLAN_FORM, hasLoan: true })).toBe(true);
+    expect(skipDiscardNote(2)).toBe("The home loan you entered won't be counted.");
+
+    expect(stepWouldDiscardEntries(3, DEFAULT_PLAN_FORM)).toBe(false);
+    expect(stepWouldDiscardEntries(3, { ...DEFAULT_PLAN_FORM, oa: "80000" })).toBe(true);
+    expect(skipDiscardNote(3)).toBe("The CPF balances you entered won't be counted.");
+
+    expect(stepWouldDiscardEntries(4, DEFAULT_PLAN_FORM)).toBe(false);
+    expect(
+      stepWouldDiscardEntries(4, {
+        ...DEFAULT_PLAN_FORM,
+        children: [{ id: "child-1", currentAge: "6", startAge: "19", years: "3", yearlyCostToday: "12000", path: "local" }],
+      }),
+    ).toBe(true);
+    expect(skipDiscardNote(4)).toBe("The children you entered won't be counted.");
   });
 });
 

@@ -31,6 +31,9 @@ import {
   DEFAULT_PLAN_FORM,
   parseDecimal,
   parsePlanForm,
+  skipDiscardNote,
+  skipLabel,
+  stepWouldDiscardEntries,
   validateStep,
   type ChildForm,
   type FieldError,
@@ -73,6 +76,7 @@ export function PlannerApp() {
   const firstVerdict = useRef(true);
   const adjustmentTracked = useRef(false);
   const [headingFocus, setHeadingFocus] = useState(0);
+  const [skipConfirm, setSkipConfirm] = useState(false);
 
   const requestHeadingFocus = () => setHeadingFocus((current) => current + 1);
 
@@ -151,6 +155,7 @@ export function PlannerApp() {
       adjustmentTracked.current = true;
     }
     setError(null);
+    setSkipConfirm(false);
     setForm((current) => ({ ...current, ...patch }));
     if (source === "suggestion") requestHeadingFocus();
   };
@@ -178,8 +183,25 @@ export function PlannerApp() {
     }
     if (step === 3) update({ includeCpf: true }, "suggestion");
     track("Step Completed", { step: STEP_NAMES[step] });
+    setSkipConfirm(false);
     setStep((current) => current + 1);
     requestHeadingFocus();
+  };
+
+  const discardsEntries = stepWouldDiscardEntries(step, form);
+
+  useEffect(() => {
+    if (!skipConfirm || !discardsEntries) return;
+    document.getElementById("skip-discard-note")?.scrollIntoView({ block: "nearest" });
+  }, [skipConfirm, discardsEntries]);
+
+  const pressSkip = () => {
+    if (discardsEntries && !skipConfirm) {
+      setSkipConfirm(true);
+      return;
+    }
+    setSkipConfirm(false);
+    goNext("skip");
   };
 
   useLayoutEffect(() => {
@@ -439,9 +461,19 @@ export function PlannerApp() {
               </button>
             ) : null}
             {step >= 2 && step < VERDICT ? (
-              <button type="button" className="pill pill-ghost" onClick={() => goNext("skip")}>
-                Skip
+              <button
+                type="button"
+                className="pill pill-ghost"
+                aria-describedby={skipConfirm && discardsEntries ? "skip-discard-note" : undefined}
+                onClick={pressSkip}
+              >
+                {skipLabel(step)}
               </button>
+            ) : null}
+            {skipConfirm && discardsEntries ? (
+              <p id="skip-discard-note" role="status" className="basis-full text-sm leading-6 text-yellow">
+                {skipDiscardNote(step)}
+              </p>
             ) : null}
           </div>
           </div>

@@ -67,6 +67,43 @@ export const DEFAULT_PLAN_FORM: PlanFormState = {
   children: [],
 };
 
+const SKIP_LABELS: Record<number, string> = {
+  2: "I don't have a home loan",
+  3: "Leave CPF out",
+  4: "No children to plan for",
+};
+
+/** Secondary action on the housing, CPF, and children steps. */
+export function skipLabel(step: number): string {
+  return SKIP_LABELS[step] ?? "Skip";
+}
+
+/**
+ * True when Skip would drop something the user has put on this step.
+ * Starter CPF figures are not treated as entries; a change to them is.
+ */
+export function stepWouldDiscardEntries(step: number, form: PlanFormState): boolean {
+  if (step === 2) return form.hasLoan;
+  if (step === 3) {
+    return (
+      form.oa !== DEFAULT_PLAN_FORM.oa ||
+      form.sa !== DEFAULT_PLAN_FORM.sa ||
+      form.ra !== DEFAULT_PLAN_FORM.ra ||
+      form.ma !== DEFAULT_PLAN_FORM.ma ||
+      form.payoutAge !== DEFAULT_PLAN_FORM.payoutAge
+    );
+  }
+  if (step === 4) return form.children.length > 0;
+  return false;
+}
+
+export function skipDiscardNote(step: number): string {
+  if (step === 2) return "The home loan you entered won't be counted.";
+  if (step === 3) return "The CPF balances you entered won't be counted.";
+  if (step === 4) return "The children you entered won't be counted.";
+  return "What you entered on this step won't be counted.";
+}
+
 export type ValidationReason = "missing" | "format" | "out-of-range";
 
 export interface FieldError {
