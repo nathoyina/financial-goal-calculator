@@ -1,6 +1,7 @@
 import { CPF_WAGE, calendarYearAtMonth } from "../cpf/constants";
 import { monthlyContributions } from "../cpf/project";
 import { formatMoney } from "./format";
+import { realAnnualReturn } from "./rates";
 
 function formatYearSpan(years: number): string {
   const rounded = Math.round(years * 10) / 10;
@@ -53,6 +54,65 @@ export function takeHomeExcessSentence(
 export function cpfLifeDollarYear(currentAge: number, payoutAge: number): number {
   const months = Math.max(0, Math.round((payoutAge - currentAge) * 12));
   return calendarYearAtMonth(months);
+}
+
+/** Future dollars divided by inflation since today. A zero rate or a zero span returns the same amount. */
+export function inTodaysMoney(futureValue: number, yearsFromToday: number, annualInflation: number): number {
+  if (!Number.isFinite(futureValue) || !Number.isFinite(yearsFromToday) || !Number.isFinite(annualInflation)) {
+    return futureValue;
+  }
+  if (yearsFromToday === 0 || annualInflation === 0) return futureValue;
+  return futureValue / (1 + annualInflation) ** yearsFromToday;
+}
+
+export type DollarMode = "today" | "future";
+
+/** Chart and table amount. Today's money is the future balance deflated back to today. */
+export function displayedBalance(input: {
+  balance: number;
+  age: number;
+  currentAge: number;
+  annualInflation: number;
+  mode: DollarMode;
+}): number {
+  if (input.mode === "future") return input.balance;
+  return inTodaysMoney(input.balance, input.age - input.currentAge, input.annualInflation);
+}
+
+/**
+ * One sentence when retirement spending, after CPF LIFE, is a smaller share of
+ * cash than the return left after inflation. Null when cash is missing or the
+ * spending rate is not below that return.
+ */
+export function savingsKeepGrowingSentence(input: {
+  currentAge: number;
+  retirementAge: number;
+  monthlyRetirementSpendingToday: number;
+  annualInflation: number;
+  annualReturn: number;
+  cpfLifeMonthly: number;
+  payoutAge: number;
+  includeCpf: boolean;
+  cashAtRetirement: number;
+}): string | null {
+  if (!(input.cashAtRetirement > 0)) return null;
+  const months = Math.round(input.retirementAge * 12) - Math.round(input.currentAge * 12);
+  const years = Math.max(0, months) / 12;
+  const yearlySpending = input.monthlyRetirementSpendingToday * (1 + input.annualInflation) ** years * 12;
+  const lifeAtRetirement =
+    input.includeCpf && input.payoutAge <= input.retirementAge ? input.cpfLifeMonthly * 12 : 0;
+  const spendRate = (yearlySpending - lifeAtRetirement) / input.cashAtRetirement;
+  const afterInflation = realAnnualReturn(input.annualReturn, input.annualInflation);
+  if (!Number.isFinite(spendRate) || !Number.isFinite(afterInflation) || !(spendRate < afterInflation)) return null;
+  return `You'd spend about ${formatShare(spendRate)} of your savings a year, less than your ${formatShare(afterInflation)} return after inflation, so your savings keep growing.`;
+}
+
+function formatShare(rate: number): string {
+  const text = new Intl.NumberFormat("en-SG", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(rate * 100);
+  return `${text}%`;
 }
 
 /** Deflates a flat future payout back to today's prices with the user's inflation rate. */

@@ -43,6 +43,8 @@ export interface BalancePoint {
   age: number;
   balance: number;
   phase: "accumulation" | "drawdown";
+  /** Ordinary Account moved into cash at this age. Omitted when nothing moved. */
+  oaSweep?: number;
 }
 
 export interface EstimateNote {
@@ -221,11 +223,14 @@ function simulate(input: PlanInput): Simulation {
       })
     : [];
 
-  const oaLoanPastRetirement =
-    input.loan?.paidFrom === "oa" && schedule.length > retirementMonth;
+  const loanEndsMonth = schedule.length;
+  const oaLoanPastRetirement = input.loan?.paidFrom === "oa" && loanEndsMonth > retirementMonth;
   const age55Month = Math.max(0, Math.round((55 - input.currentAge) * 12));
-  const sweepMonth =
-    input.includeCpf && !oaLoanPastRetirement ? Math.max(retirementMonth, age55Month) : null;
+  // A loan paid from the Ordinary Account keeps that account until the month
+  // after the last instalment. Anything left then moves to cash.
+  const sweepMonth = input.includeCpf
+    ? Math.max(oaLoanPastRetirement ? loanEndsMonth : retirementMonth, age55Month)
+    : null;
 
   const education = educationByMonth(
     educationWithdrawals({
@@ -326,15 +331,17 @@ function simulate(input: PlanInput): Simulation {
     const cpfLife =
       cpf && cpf.payoutStartMonth !== null && month >= cpf.payoutStartMonth ? cpf.monthlyPayout : 0;
     const sweep = sweepMonth === month && cpf ? cpf.oaWithdrawn : 0;
+    const oaCredit = cpf?.postSweepOaCredits[month] ?? 0;
     const spendingNeed =
       input.monthlyRetirementSpendingToday * inflated -
       cpfLife +
       (education.get(month) ?? 0) +
       (input.loan?.paidFrom === "cash" ? (schedule[month]?.payment ?? 0) : 0) +
       (cpf?.oaShortfall[month] ?? 0);
-    // A sweep on the retirement month is already inside projected cash.
-    // A later sweep, when retirement is before 55, reduces the nest egg instead.
-    retirementNeeds.push(month === retirementMonth ? spendingNeed : spendingNeed - sweep);
+    // A sweep or interest credit on the retirement month is already inside projected cash.
+    // A later one reduces the nest egg instead.
+    const laterInflow = month === retirementMonth ? 0 : sweep + oaCredit;
+    retirementNeeds.push(spendingNeed - laterInflow);
   }
 
   const ageAt = (month: number) => (startMonths + month) / 12;
@@ -356,10 +363,16 @@ function simulate(input: PlanInput): Simulation {
     const wage = wageAtMonth(month);
     const employeeCpf = monthlyContributions(age, wage, calendarYearAtMonth(month)).employee;
     const sweepIncome = sweepMonth === month && cpf && !swept ? cpf.oaWithdrawn : 0;
+    const oaCredit = cpf?.postSweepOaCredits[month] ?? 0;
     if (sweepMonth === month && cpf) swept = true;
 
     if (!working) {
-      if (sweepIncome > 0) balance += sweepIncome;
+      if (sweepIncome > 0) {
+        balance += sweepIncome;
+        const marker = series.find((point) => Math.abs(point.age - age) < 1e-6);
+        if (marker) marker.oaSweep = sweepIncome;
+      }
+      if (oaCredit > 0) balance += oaCredit;
       if (month === retirementMonth) projectedCashAtRetirement = balance;
       const need =
         input.monthlyRetirementSpendingToday * inflated -

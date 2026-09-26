@@ -135,6 +135,56 @@ describe("CPF projection", () => {
     expect(result.balances[0].ra).toBe(0);
   });
 
+  it("includes this year's Ordinary Account interest in the sweep, once, and pays later interest to cash", () => {
+    const initialOa = 120_000;
+    const sweepAt = 2;
+    const result = projectCpf({
+      currentAge: 50,
+      months: 8,
+      initial: { oa: initialOa, sa: 0, ra: 0, ma: 40_000 },
+      wageAtMonth: () => 0,
+      payoutAge: 65,
+      withdrawOaAtMonth: sweepAt,
+    });
+
+    const monthly = CPF_INTEREST.ordinaryAccount.value / 12;
+    const extraMonthly = CPF_INTEREST.extraBelow55.value / 12;
+    const oaInExtra = Math.min(initialOa, CPF_INTEREST.extraBelow55.ordinaryCap);
+    let accrued = 0;
+    let extra = 0;
+    for (let month = 0; month < sweepAt; month += 1) {
+      accrued += initialOa * monthly;
+      extra += oaInExtra * extraMonthly;
+    }
+
+    expect(result.oaWithdrawn).toBeCloseTo(initialOa + accrued, 6);
+    expect(result.balances.slice(sweepAt).every((balances) => balances.oa === 0)).toBe(true);
+    const credited = result.postSweepOaCredits.reduce((sum, amount) => sum + amount, 0);
+    expect(credited).toBeCloseTo(extra, 6);
+    expect(result.postSweepOaCredits.slice(0, sweepAt).every((amount) => amount === 0)).toBe(true);
+    expect(result.oaWithdrawn + credited).toBeCloseTo(initialOa + accrued + extra, 6);
+    expect(result.balances.every((balances) => balances.ma > 30_000)).toBe(true);
+    expect(result.oaWithdrawn).toBeLessThan(initialOa + accrued + 1_000);
+  });
+
+  it("keeps the Retirement Account at zero from the month CPF LIFE starts", () => {
+    const result = projectCpf({
+      currentAge: 64,
+      months: 20,
+      initial: { oa: 80_000, sa: 0, ra: 200_000, ma: 20_000 },
+      wageAtMonth: () => 0,
+      payoutAge: 65,
+      withdrawOaAtMonth: 12,
+    });
+    expect(result.payoutStartMonth).not.toBeNull();
+    const start = result.payoutStartMonth ?? 0;
+    for (let month = start; month < result.balances.length; month += 1) {
+      expect(result.balances[month].ra).toBe(0);
+    }
+    expect(result.balances[result.balances.length - 1].ma).toBeGreaterThan(20_000);
+    expect(result.oaWithdrawn).toBeLessThan(80_000 + 10_000);
+  });
+
   it("lets an OA housing payment reduce OA, and reports what OA cannot cover", () => {
     const result = projectCpf({
       currentAge: 40,

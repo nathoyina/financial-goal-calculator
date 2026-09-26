@@ -48,7 +48,7 @@ The verdict is one sentence: you can retire at that age, or you cannot.
 - **CPF LIFE payout.** A flat monthly estimate from the payout age, when CPF is included.
 - **Left to save today.** This month’s income minus employee CPF, spending, and a cash loan instalment, plus any extra saving.
 - **If the plan fails.** The earliest later age that works, the extra monthly saving that closes the gap, or the retirement spending cut that does. Also the age cash runs out.
-- **Chart.** Cash balance through the working years and retirement.
+- **Chart.** Cash balance through the working years and retirement, in today's money or future dollars. A marker shows Ordinary Account savings moved into cash.
 
 Any figure that depends on an assumption beyond a published table is tagged **Estimate**. The verdict says so in words when the result uses one.
 
@@ -134,7 +134,7 @@ Cohorts turning 55 after 2027 are an assumption: the 2027 Basic Retirement Sum g
 
 Additional wages are not modelled. The annual ceiling of S$102,000 would cap ordinary wages plus bonuses. This plan only caps the monthly ordinary wage. Selling a home bought with CPF requires a refund of principal plus accrued interest. That interest rate was not confirmed, so the plan does not charge it and shows an estimate tag. The loan rate you type is used for the monthly-rest instalment only.
 
-Ordinary Account savings move into spendable cash at retirement, or at 55 if you retire earlier, unless an Ordinary Account loan still has payments after retirement. In that case the account stays put to keep paying the loan.
+Ordinary Account savings move into spendable cash at retirement, or at 55 if you retire earlier. The amount includes Ordinary Account interest already earned that year and not yet credited in December. If an Ordinary Account loan still has payments after retirement, the account keeps paying the loan, and whatever is left moves to cash in the month after the loan ends. After that move, later Ordinary Account interest and extra interest are paid to cash. Extra interest is not credited to the Retirement Account once CPF LIFE payouts have started, so that account stays at zero. The balance chart shows today's money by default (each future balance divided by inflation since today) and can switch to future dollars.
 
 CPF LIFE that starts before retirement, which is what happens if you keep working past the payout age, is added to cash each month. There is no upper limit on the retirement age itself. A member who is already 65 or older has no age-65 snapshot in this plan, so the payout is estimated from the Retirement Account they enter, and the “up to 7%” deferral is applied only for years still ahead. The CPF monthly payout estimator is the logged-in tool for a personal quote. CPF points members under 55 to the Retirement Payout Planner instead. This app projects the balance forward and labels the result an estimate. MoneyOwl’s retirement planner asks the same kinds of questions, salary and saving, cash, and CPF balances, then shows whether the plan works. This screen uses its own layout and its own maths.
 

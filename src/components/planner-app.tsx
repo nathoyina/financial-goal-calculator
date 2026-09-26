@@ -23,6 +23,7 @@ import { formatAge, formatMoney, formatPercent } from "@/lib/finance/format";
 import {
   cpfLifeDollarYear,
   cpfLifeInTodaysMoney,
+  savingsKeepGrowingSentence,
   spendingExceedsTakeHome,
   takeHomeExcessSentence,
   yearsUntilRetirementLine,
@@ -538,6 +539,17 @@ function Verdict({
     annualInflation: input.annualInflation,
     monthlyPayout: result.cpfLifeMonthly,
   });
+  const growthSentence = savingsKeepGrowingSentence({
+    currentAge: input.currentAge,
+    retirementAge: input.retirementAge,
+    monthlyRetirementSpendingToday: input.monthlyRetirementSpendingToday,
+    annualInflation: input.annualInflation,
+    annualReturn: input.annualReturn,
+    cpfLifeMonthly: result.cpfLifeMonthly,
+    payoutAge: input.cpf.payoutAge,
+    includeCpf: input.includeCpf,
+    cashAtRetirement: result.projectedCashAtRetirement,
+  });
   const sentence = result.canRetire
     ? `Yes. You can retire at ${formatAge(input.retirementAge)}.`
     : `No. You cannot retire at ${formatAge(input.retirementAge)} on this plan.`;
@@ -561,6 +573,7 @@ function Verdict({
           {sentence}
         </h2>
         <p className="mt-3 text-base leading-7 text-white">{detail}</p>
+        {growthSentence ? <p className="mt-3 text-base leading-7 text-white">{growthSentence}</p> : null}
         {notice ? <p className="mt-3 text-sm leading-6 text-muted">{notice}</p> : null}
       </div>
 
@@ -642,13 +655,14 @@ function Verdict({
 
       <div>
         <h3 className="text-lg font-bold">Balance over time</h3>
-        <p className="mt-1 text-sm leading-5 text-muted">The solid line is the working years. The dashed line is retirement. Cash only, after any OA moved in at 55 or retirement.</p>
+        <p className="mt-1 text-sm leading-5 text-muted">The solid line is the working years. The dashed line is retirement. Cash only. A yellow marker shows Ordinary Account savings moved into cash.</p>
         <BalanceChart
           series={result.series}
           retirementAge={input.retirementAge}
           lifeExpectancy={input.lifeExpectancy}
           moneyRunsOutAge={result.moneyRunsOutAge}
           currency="SGD"
+          annualInflation={input.annualInflation}
         />
       </div>
 
@@ -666,7 +680,7 @@ function Verdict({
           <li>Contributions use the published citizen rates for each calendar year, on wages above {formatMoney(CPF_WAGE.fullRateAbove.value)}, capped at the {formatMoney(CPF_WAGE.ordinaryCeiling.value)} ordinary wage ceiling from {PLANNING_YEAR}. Senior-worker rates use the published 2027 table from January 2027, then stay on that table. Additional wages are not modelled. The annual wage ceiling is {formatMoney(CPF_WAGE.annualCeiling.value)}.</li>
           <li>The Full Retirement Sum for the year you turn 55, not a voluntary top-up to the Enhanced Retirement Sum, is set aside at 55. The Enhanced Retirement Sum is the {ENHANCED_RETIREMENT_SUM.year} top-up limit of {formatMoney(ENHANCED_RETIREMENT_SUM.value)}. It is not four times an earlier cohort’s Basic Retirement Sum.</li>
           <li>Interest is calculated on each month’s balance and added at the end of December. It is not monthly compounding.</li>
-          <li>MediSave is not used for living costs. Ordinary Account savings move into spendable cash at retirement, or at 55 if you retire earlier, unless an OA loan is still running.</li>
+          <li>MediSave is not used for living costs. Ordinary Account savings, including interest already earned that year, move into spendable cash at retirement, or at 55 if you retire earlier. If an OA loan is still running, the leftover moves the month after the loan ends. Later Ordinary Account interest goes to cash, and the Retirement Account stays at zero once CPF LIFE starts.</li>
         </ul>
       </div>
 

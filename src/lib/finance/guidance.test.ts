@@ -5,12 +5,16 @@ import { parseDecimal } from "./parse";
 import {
   cpfLifeDollarYear,
   cpfLifeInTodaysMoney,
+  displayedBalance,
+  inTodaysMoney,
   projectedSalaryExceedsCeiling,
+  savingsKeepGrowingSentence,
   spendingExceedsTakeHome,
   takeHomeExcessSentence,
   takeHomePay,
   yearsUntilRetirementLine,
 } from "./guidance";
+import { realAnnualReturn } from "./rates";
 
 const base: PlanInput = {
   currentAge: 40,
@@ -262,6 +266,96 @@ describe("optional yes or no", () => {
       expect(childNo.result.projectedCashAtRetirement).toBeGreaterThan(childYes.result.projectedCashAtRetirement);
       expect(childAgain.result.gap).toBeCloseTo(childYes.result.gap, 4);
     }
+  });
+});
+
+describe("today's money on the chart", () => {
+  it("equals the future balance divided by inflation since today", () => {
+    const future = 2_425_682;
+    const years = 30;
+    const inflation = 0.025;
+    expect(inTodaysMoney(future, years, inflation)).toBeCloseTo(future / (1 + inflation) ** years, 6);
+    expect(inTodaysMoney(future, 0, inflation)).toBe(future);
+    expect(inTodaysMoney(future, years, 0)).toBe(future);
+    expect(
+      displayedBalance({
+        balance: future,
+        age: 65,
+        currentAge: 35,
+        annualInflation: inflation,
+        mode: "today",
+      }),
+    ).toBeCloseTo(future / (1 + inflation) ** years, 6);
+    expect(
+      displayedBalance({
+        balance: future,
+        age: 65,
+        currentAge: 35,
+        annualInflation: inflation,
+        mode: "future",
+      }),
+    ).toBe(future);
+  });
+});
+
+describe("savings that keep growing", () => {
+  const defaults: PlanInput = {
+    currentAge: 35,
+    retirementAge: 65,
+    lifeExpectancy: 90,
+    cashSavings: 40_000,
+    monthlyIncome: 7_000,
+    annualIncomeGrowth: 0.02,
+    monthlyExpensesNow: 4_000,
+    monthlyRetirementSpendingToday: 3_500,
+    annualReturn: 0.05,
+    annualInflation: 0.025,
+    extraMonthlySaving: 0,
+    includeCpf: true,
+    cpf: { oa: 40_000, sa: 25_000, ra: 0, ma: 15_000, payoutAge: 65 },
+    loan: null,
+    children: [],
+  };
+
+  it("adds the sentence for the default plan and hides it when spending is above the real return", () => {
+    const result = calculatePlan(defaults);
+    const sentence = savingsKeepGrowingSentence({
+      currentAge: defaults.currentAge,
+      retirementAge: defaults.retirementAge,
+      monthlyRetirementSpendingToday: defaults.monthlyRetirementSpendingToday,
+      annualInflation: defaults.annualInflation,
+      annualReturn: defaults.annualReturn,
+      cpfLifeMonthly: result.cpfLifeMonthly,
+      payoutAge: defaults.cpf.payoutAge,
+      includeCpf: true,
+      cashAtRetirement: result.projectedCashAtRetirement,
+    });
+    const years = 30;
+    const net =
+      defaults.monthlyRetirementSpendingToday * (1 + defaults.annualInflation) ** years * 12 -
+      result.cpfLifeMonthly * 12;
+    const spendRate = net / result.projectedCashAtRetirement;
+    const afterInflation = realAnnualReturn(defaults.annualReturn, defaults.annualInflation);
+    expect(spendRate).toBeLessThan(afterInflation);
+    expect(sentence).toMatch(/spend about \d+\.\d% of your savings a year/);
+    expect(sentence).toMatch(/return after inflation, so your savings keep growing/);
+    expect(sentence).toContain(`${(spendRate * 100).toFixed(1)}%`);
+    expect(sentence).toContain(`${(afterInflation * 100).toFixed(1)}%`);
+
+    const highSpend = calculatePlan({ ...defaults, monthlyRetirementSpendingToday: 20_000 });
+    expect(
+      savingsKeepGrowingSentence({
+        currentAge: defaults.currentAge,
+        retirementAge: defaults.retirementAge,
+        monthlyRetirementSpendingToday: 20_000,
+        annualInflation: defaults.annualInflation,
+        annualReturn: defaults.annualReturn,
+        cpfLifeMonthly: highSpend.cpfLifeMonthly,
+        payoutAge: defaults.cpf.payoutAge,
+        includeCpf: true,
+        cashAtRetirement: highSpend.projectedCashAtRetirement,
+      }),
+    ).toBeNull();
   });
 });
 
