@@ -45,18 +45,20 @@ export const SWINBURNE_TUITION_SOURCE =
 export const COLLEGE_BOARD_SOURCE = "https://research.collegeboard.org/trends/college-pricing/highlights";
 
 /**
- * Caveat for the estimate tag on a preset.
- * Visa living-cost figures are minimums. Flights and insurance are excluded.
- * Checked 26 September 2026.
+ * Estimate-tag notes, one set of sentences per preset.
+ * Checked 26 September 2026 against docs/education-reference-2026.md.
  */
-export const EDUCATION_ESTIMATE_CAVEAT =
-  "Visa living-cost figures are minimums. Flights and insurance aren't included.";
+export const LOCAL_ESTIMATE_EXPLANATION =
+  "Tuition is the 2026 subsidised fee for Singapore citizens. Living costs are NUS's estimate for a student living at home, so hostel fees aren't included.";
 
-/**
- * Australia's A$45,000 tuition is an assumption. There is no official average.
- * Year 2026.
- */
-export const AUSTRALIA_TUITION_ASSUMPTION_NOTE = "Tuition is an assumption.";
+export const UK_ESTIMATE_EXPLANATION =
+  "Tuition is the UCAS average for international students. Living costs are the UK student visa minimum outside London. Flights and insurance aren't included.";
+
+export const AUSTRALIA_ESTIMATE_EXPLANATION =
+  "Living costs are the Australian student visa minimum. Tuition is an assumption. Flights and insurance aren't included.";
+
+export const US_ESTIMATE_EXPLANATION =
+  "College Board 2025-26 prices before financial aid. Books, flights and insurance aren't included.";
 
 /**
  * Singapore citizen, MOE-subsidised local university.

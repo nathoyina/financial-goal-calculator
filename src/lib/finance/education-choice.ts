@@ -1,8 +1,10 @@
 import { calendarYearAtMonth } from "../cpf/constants";
 import {
-  AUSTRALIA_TUITION_ASSUMPTION_NOTE,
-  EDUCATION_ESTIMATE_CAVEAT,
+  AUSTRALIA_ESTIMATE_EXPLANATION,
   EDUCATION_PRESETS,
+  LOCAL_ESTIMATE_EXPLANATION,
+  UK_ESTIMATE_EXPLANATION,
+  US_ESTIMATE_EXPLANATION,
   type EducationPresetId,
 } from "../education/constants";
 import { formatMoney } from "./format";
@@ -145,8 +147,17 @@ export function activePresetId(child: EducationChildState): EducationPresetId | 
 }
 
 export function presetEstimateExplanation(preset: EducationPresetId): string {
-  if (preset === "australia") return `${EDUCATION_ESTIMATE_CAVEAT} ${AUSTRALIA_TUITION_ASSUMPTION_NOTE}`;
-  return EDUCATION_ESTIMATE_CAVEAT;
+  switch (preset) {
+    case "local":
+      return LOCAL_ESTIMATE_EXPLANATION;
+    case "uk":
+      return UK_ESTIMATE_EXPLANATION;
+    case "australia":
+      return AUSTRALIA_ESTIMATE_EXPLANATION;
+    case "us-public":
+    case "us-private":
+      return US_ESTIMATE_EXPLANATION;
+  }
 }
 
 /** Figure name for Estimate Info Opened. No amounts. */

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   AUSTRALIA_UNIVERSITY,
-  EDUCATION_ESTIMATE_CAVEAT,
   LOCAL_UNIVERSITY,
   UK_UNIVERSITY,
   US_PRIVATE_UNIVERSITY,
@@ -81,12 +80,6 @@ describe("education cost presets", () => {
   it("switches to Custom and drops the estimate when a figure is edited", () => {
     const local = applyStudyChoice(child(), "local");
     expect(activePresetId(local)).toBe("local");
-    expect(presetEstimateExplanation("local")).toBe(EDUCATION_ESTIMATE_CAVEAT);
-    expect(presetEstimateExplanation("uk")).toContain("Visa living-cost figures are minimums");
-    expect(presetEstimateExplanation("uk")).toContain("Flights and insurance aren't included");
-    expect(presetEstimateExplanation("australia")).toBe(
-      `${EDUCATION_ESTIMATE_CAVEAT} Tuition is an assumption.`,
-    );
 
     const typing = draftEducationFigure(applyOverseasPreset(child(), "uk"), "yearlyCostToday", "60000");
     expect(typing.educationChoice).toBe("overseas");
@@ -136,6 +129,22 @@ describe("education cost presets", () => {
     expect(custom.presetEdited).toBe(false);
     expect(custom.yearlyCostToday).toBe("14300");
     expect(activePresetId(custom)).toBeNull();
+  });
+
+  it("gives each preset its own estimate note", () => {
+    expect(presetEstimateExplanation("local")).toBe(
+      "Tuition is the 2026 subsidised fee for Singapore citizens. Living costs are NUS's estimate for a student living at home, so hostel fees aren't included.",
+    );
+    expect(presetEstimateExplanation("uk")).toBe(
+      "Tuition is the UCAS average for international students. Living costs are the UK student visa minimum outside London. Flights and insurance aren't included.",
+    );
+    expect(presetEstimateExplanation("australia")).toBe(
+      "Living costs are the Australian student visa minimum. Tuition is an assumption. Flights and insurance aren't included.",
+    );
+    const usNote =
+      "College Board 2025-26 prices before financial aid. Books, flights and insurance aren't included.";
+    expect(presetEstimateExplanation("us-public")).toBe(usNote);
+    expect(presetEstimateExplanation("us-private")).toBe(usNote);
   });
 
   it("states the total in today’s prices and the start year", () => {
