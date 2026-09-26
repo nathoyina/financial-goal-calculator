@@ -169,12 +169,12 @@ html[data-typing="true"] .step-rise {
   cursor: pointer;
 }
 
-.choice-pill:has(:focus-visible) {
+.choice-pill:focus-visible {
   outline: 2px solid var(--yellow);
   outline-offset: 3px;
 }
 
-.choice-pill.pill-shout:has(:focus-visible) {
+.choice-pill.pill-shout:focus-visible {
   outline-color: #fff;
 }
 

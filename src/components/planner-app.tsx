@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { EstimateTag } from "@/components/estimate-tag";
 import { BalanceChart } from "@/components/balance-chart";
 import { NumberField } from "@/components/number-field";
@@ -27,7 +27,7 @@ import {
   takeHomeExcessSentence,
   yearsUntilRetirementLine,
 } from "@/lib/finance/guidance";
-import { chooseOptionalAnswer, showsContinue } from "@/lib/finance/optional-step";
+import { pressOptionalButton, showsContinue } from "@/lib/finance/optional-step";
 import { estimateNotice } from "@/lib/finance/plan";
 import {
   DEFAULT_PLAN_FORM,
@@ -163,19 +163,24 @@ export function PlannerApp() {
   const fieldError = (field: string) => (error?.field === field ? error.message : undefined);
   const noAdvanceLock = useRef(false);
 
-  const pickOptional = (answer: "yes" | "no") => {
-    if (answer === "no") {
-      if (noAdvanceLock.current) return;
-      noAdvanceLock.current = true;
-      queueMicrotask(() => {
-        noAdvanceLock.current = false;
-      });
-    }
-    const choice = chooseOptionalAnswer(step, form, answer);
-    update(choice.form);
-    if (choice.completed && choice.nextStep !== null) {
-      track("Step Completed", choice.completed);
-      setStep(choice.nextStep);
+  useEffect(() => {
+    noAdvanceLock.current = false;
+  }, [step]);
+
+  const activateOptional = (button: "yes" | "no", activation: string) => {
+    const result = pressOptionalButton({
+      step,
+      form,
+      button,
+      activation,
+      locked: noAdvanceLock.current,
+    });
+    noAdvanceLock.current = result.locked;
+    if (result.form === form) return;
+    update(result.form);
+    if (result.completed && result.nextStep !== null) {
+      track("Step Completed", result.completed);
+      setStep(result.nextStep);
       requestHeadingFocus();
     }
   };
@@ -323,13 +328,14 @@ export function PlannerApp() {
                 Are you still paying a home loan?
               </h2>
               <YesNoChoice
-                name="loan"
                 value={form.loanAnswer}
                 yesId="loan-yes"
                 noId="loan-no"
                 labelledBy={HEADING_ID}
-                onChange={pickOptional}
+                controlsId="loan-fields"
+                onActivate={activateOptional}
               />
+              <div id="loan-fields" hidden={form.loanAnswer !== "yes"}>
               {form.loanAnswer === "yes" ? (
                 <>
                   <p id={HOUSING_HINT_ID} className="text-sm leading-6 text-muted">
@@ -349,6 +355,7 @@ export function PlannerApp() {
                   </label>
                 </>
               ) : null}
+              </div>
             </section>
           ) : null}
 
@@ -361,14 +368,15 @@ export function PlannerApp() {
                 Your CPF contributions from salary are still counted either way.
               </p>
               <YesNoChoice
-                name="cpf"
                 value={form.cpfAnswer}
                 yesId="cpf-yes"
                 noId="cpf-no"
                 labelledBy={HEADING_ID}
                 hintId="cpf-choice-hint"
-                onChange={pickOptional}
+                controlsId="cpf-fields"
+                onActivate={activateOptional}
               />
+              <div id="cpf-fields" hidden={form.cpfAnswer !== "yes"}>
               {form.cpfAnswer === "yes" ? (
                 <>
                   <p className="text-sm leading-6 text-muted">
@@ -382,6 +390,7 @@ export function PlannerApp() {
                   <NumberField id="payout-age" label="CPF LIFE payout age" hint={`From ${CPF_LIFE_DEFERRAL.earliestAge} to ${CPF_LIFE_DEFERRAL.latestAge}. Later ages use CPF’s “up to ${formatPercent(CPF_LIFE_DEFERRAL.perYear)} a year” deferral as an estimate, capped at ${formatPercent(CPF_LIFE_DEFERRAL.maxIncrease)}.`} value={form.payoutAge} onChange={(value) => update({ payoutAge: value })} suffix="years" error={fieldError("payoutAge")} />
                 </>
               ) : null}
+              </div>
             </section>
           ) : null}
 
@@ -391,13 +400,14 @@ export function PlannerApp() {
                 Planning for children&apos;s education?
               </h2>
               <YesNoChoice
-                name="children"
                 value={form.childrenAnswer}
                 yesId="children-yes"
                 noId="children-no"
                 labelledBy={HEADING_ID}
-                onChange={pickOptional}
+                controlsId="children-fields"
+                onActivate={activateOptional}
               />
+              <div id="children-fields" hidden={form.childrenAnswer !== "yes"}>
               {form.childrenAnswer === "yes" ? (
                 <>
               <p className="text-sm leading-6 text-muted">
@@ -454,6 +464,7 @@ export function PlannerApp() {
               ) : null}
                 </>
               ) : null}
+              </div>
             </section>
           ) : null}
 
@@ -670,69 +681,52 @@ function Verdict({
 }
 
 function YesNoChoice({
-  name,
   value,
   yesId,
   noId,
   labelledBy,
   hintId,
-  onChange,
+  controlsId,
+  onActivate,
 }: {
-  name: string;
   value: OptionalAnswer;
   yesId: string;
   noId: string;
   labelledBy: string;
   hintId?: string;
-  onChange: (answer: "yes" | "no") => void;
+  controlsId: string;
+  onActivate: (button: "yes" | "no", activation: string) => void;
 }) {
-  const yesRef = useRef<HTMLInputElement>(null);
-  const keepYesFocus = useRef(false);
-
-  useLayoutEffect(() => {
-    if (!keepYesFocus.current) return;
-    keepYesFocus.current = false;
-    yesRef.current?.focus();
-  }, [value]);
-
-  const pick = (answer: "yes" | "no") => {
-    if (answer === "yes") keepYesFocus.current = true;
-    onChange(answer);
+  const onKeyDown = (button: "yes" | "no", event: KeyboardEvent<HTMLButtonElement>) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    onActivate(button, event.key);
   };
 
   return (
-    <div className="flex flex-col gap-3">
-      <div role="radiogroup" aria-labelledby={labelledBy} aria-describedby={hintId} className="flex flex-wrap gap-3">
-        {(
-          [
-            ["yes", "Yes", yesId],
-            ["no", "No", noId],
-          ] as const
-        ).map(([answer, label, id]) => (
-          <label key={answer} className={`choice-pill pill ${value === answer ? "pill-shout" : "pill-ghost"}`}>
-            <input
-              id={id}
-              ref={answer === "yes" ? yesRef : undefined}
-              className="sr-only"
-              type="radio"
-              name={name}
-              value={answer}
-              checked={value === answer}
-              onChange={() => pick(answer)}
-              onClick={() => {
-                if (answer === "no" && value === "no") pick("no");
-              }}
-              onKeyDown={(event) => {
-                if (answer === "no" && value === "no" && (event.key === "Enter" || event.key === " ")) {
-                  event.preventDefault();
-                  pick("no");
-                }
-              }}
-            />
-            {label}
-          </label>
-        ))}
-      </div>
+    <div role="group" aria-labelledby={labelledBy} aria-describedby={hintId} className="flex flex-wrap gap-3">
+      <button
+        type="button"
+        id={yesId}
+        className={`choice-pill pill ${value === "yes" ? "pill-shout" : "pill-ghost"}`}
+        aria-expanded={value === "yes"}
+        aria-controls={controlsId}
+        aria-pressed={value === "yes"}
+        onClick={() => onActivate("yes", "click")}
+        onKeyDown={(event) => onKeyDown("yes", event)}
+      >
+        Yes
+      </button>
+      <button
+        type="button"
+        id={noId}
+        className={`choice-pill pill ${value === "no" ? "pill-shout" : "pill-ghost"}`}
+        aria-pressed={value === "no"}
+        onClick={() => onActivate("no", "click")}
+        onKeyDown={(event) => onKeyDown("no", event)}
+      >
+        No
+      </button>
     </div>
   );
 }

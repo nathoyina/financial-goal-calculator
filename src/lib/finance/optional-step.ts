@@ -22,6 +22,63 @@ export interface OptionalChoice {
   completed: Record<string, string> | null;
 }
 
+/** Pressed state for the two buttons. Unanswered means neither is pressed. */
+export function optionalButtonState(answer: OptionalAnswer, controlsId: string) {
+  return {
+    groupRole: "group" as const,
+    yes: {
+      expanded: answer === "yes",
+      controls: controlsId,
+      pressed: answer === "yes",
+    },
+    no: {
+      pressed: answer === "no",
+    },
+    showsContinue: answer === "yes",
+  };
+}
+
+const CHOICE_KEYS = new Set(["click", "Enter", " ", "Spacebar"]);
+const ARROW_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
+
+export interface ChoicePress {
+  step: number;
+  form: PlanFormState;
+  button: "yes" | "no";
+  activation: string;
+  locked: boolean;
+}
+
+export interface ChoicePressResult {
+  form: PlanFormState;
+  nextStep: number | null;
+  completed: Record<string, string> | null;
+  locked: boolean;
+}
+
+/**
+ * Buttons, not a radiogroup. Arrows do nothing. No moves on for click, Enter, or Space.
+ * A locked No press is the second half of a double press and does not complete again.
+ */
+export function pressOptionalButton(input: ChoicePress): ChoicePressResult {
+  const stay: ChoicePressResult = {
+    form: input.form,
+    nextStep: null,
+    completed: null,
+    locked: input.locked,
+  };
+  if (ARROW_KEYS.has(input.activation) || !CHOICE_KEYS.has(input.activation)) return stay;
+  if (input.button === "no" && input.locked) return stay;
+
+  const choice = chooseOptionalAnswer(input.step, input.form, input.button);
+  return {
+    form: choice.form,
+    nextStep: choice.nextStep,
+    completed: choice.completed,
+    locked: input.button === "no" ? true : input.locked,
+  };
+}
+
 /**
  * Yes stores the answer and keeps every typed figure.
  * No stores the answer, keeps those figures for a later Yes, and completes the step.
