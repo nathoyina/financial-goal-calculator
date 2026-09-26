@@ -56,6 +56,8 @@ export function verdictAnalyticsProps(input: {
   hasHousingLoan: boolean;
   hasChildren: boolean;
   reliesOnEstimate: boolean;
+  /** True only for the first verdict of this browser session. */
+  isFirstVerdict: boolean;
 }): Record<string, string | number | boolean> {
   return {
     outcome: input.outcome,
@@ -64,5 +66,15 @@ export function verdictAnalyticsProps(input: {
     has_housing_loan: input.hasHousingLoan,
     has_children: input.hasChildren,
     relies_on_estimate: input.reliesOnEstimate,
+    is_first_verdict: input.isFirstVerdict,
   };
+}
+
+/** One Inputs Adjusted After Verdict event per verdict the user has seen. */
+export function shouldTrackAdjustmentAfterVerdict(input: {
+  verdictSeen: boolean;
+  alreadyTrackedForThisVerdict: boolean;
+  source: "user" | "suggestion";
+}): boolean {
+  return input.verdictSeen && input.source === "user" && !input.alreadyTrackedForThisVerdict;
 }

@@ -7,6 +7,7 @@ import { NumberField } from "@/components/number-field";
 import {
   STEP_NAMES,
   track,
+  shouldTrackAdjustmentAfterVerdict,
   verdictAnalyticsProps,
 } from "@/lib/analytics/track";
 import {
@@ -98,6 +99,8 @@ export function PlannerApp() {
   const [error, setError] = useState<FieldError | null>(null);
   const started = useRef(false);
   const verdictSeen = useRef(false);
+  const firstVerdict = useRef(true);
+  const adjustmentTracked = useRef(false);
 
   useEffect(() => {
     track("Landing Viewed");
@@ -142,14 +145,19 @@ export function PlannerApp() {
             hasHousingLoan: parsed.input.loan !== null,
             hasChildren: parsed.input.children.length > 0,
             reliesOnEstimate: parsed.result.reliesOnEstimate,
+            isFirstVerdict: false,
           }),
         )
       : "";
 
   useEffect(() => {
     if (!analyticsKey) return;
+    const props = JSON.parse(analyticsKey) as Record<string, string | number | boolean>;
+    props.is_first_verdict = firstVerdict.current;
+    firstVerdict.current = false;
+    adjustmentTracked.current = false;
     verdictSeen.current = true;
-    track("Verdict Viewed", JSON.parse(analyticsKey) as Record<string, string | number | boolean>);
+    track("Verdict Viewed", props);
   }, [analyticsKey]);
 
   const update = (patch: Partial<PlanFormState>, source: "user" | "suggestion" = "user") => {
@@ -157,7 +165,16 @@ export function PlannerApp() {
       started.current = true;
       track("Calculator Started");
     }
-    if (verdictSeen.current && source === "user") track("Inputs Adjusted After Verdict");
+    if (
+      shouldTrackAdjustmentAfterVerdict({
+        verdictSeen: verdictSeen.current,
+        alreadyTrackedForThisVerdict: adjustmentTracked.current,
+        source,
+      })
+    ) {
+      track("Inputs Adjusted After Verdict");
+      adjustmentTracked.current = true;
+    }
     setError(null);
     setForm((current) => ({ ...current, ...patch }));
   };
@@ -507,7 +524,7 @@ function Verdict({
 
       <div>
         <h3 className="text-lg font-bold">Balance over time</h3>
-        <p className="mt-1 text-sm leading-5 text-muted">White is the working years. The lighter line is retirement. Cash only, after any OA moved in at 55 or retirement.</p>
+        <p className="mt-1 text-sm leading-5 text-muted">The solid line is the working years. The dashed line is retirement. Cash only, after any OA moved in at 55 or retirement.</p>
         <BalanceChart
           series={result.series}
           retirementAge={input.retirementAge}
@@ -530,7 +547,7 @@ function Verdict({
         <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted">
           <li>Contributions use the published citizen rates for each calendar year, on wages above {formatMoney(CPF_WAGE.fullRateAbove.value)}, capped at the {formatMoney(CPF_WAGE.ordinaryCeiling.value)} ordinary wage ceiling from {PLANNING_YEAR}. Senior-worker rates use the published 2027 table from January 2027, then stay on that table. Additional wages are not modelled. The annual wage ceiling is {formatMoney(CPF_WAGE.annualCeiling.value)}.</li>
           <li>The Full Retirement Sum, not a voluntary top-up to the Enhanced Retirement Sum, is set aside at 55. From {ERS_MULTIPLE_OF_BRS.sinceYear} the Enhanced Retirement Sum is {ERS_MULTIPLE_OF_BRS.value} times the Basic Retirement Sum.</li>
-          <li>Interest is calculated on each month’s balance and added once a year. It is not monthly compounding.</li>
+          <li>Interest is calculated on each month’s balance and added at the end of December. It is not monthly compounding.</li>
           <li>MediSave is not used for living costs. Ordinary Account savings move into spendable cash at retirement, or at 55 if you retire earlier, unless an OA loan is still running.</li>
         </ul>
       </div>

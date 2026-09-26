@@ -3,6 +3,7 @@ import { CPF_INTEREST } from "./constants";
 import {
   closeSpecialAccount,
   estimateStandardPayout,
+  extraInterestSlices,
   monthlyContributions,
   projectCpf,
 } from "./project";
@@ -50,7 +51,7 @@ describe("CPF projection", () => {
     expect(monthlyContributions(30, 0).total).toBe(0);
   });
 
-  it("credits interest once a year on each month's balance, with OA extra interest to the SA", () => {
+  it("credits interest at the end of December on the months so far, with OA extra interest to the SA", () => {
     const result = projectCpf({
       currentAge: 30,
       months: 12,
@@ -58,10 +59,47 @@ describe("CPF projection", () => {
       wageAtMonth: () => 0,
       payoutAge: 65,
     });
-    const end = result.balances[11];
-    expect(end.oa).toBeCloseTo(10_000 * (1 + CPF_INTEREST.ordinaryAccount.value), 4);
-    expect(end.sa).toBeCloseTo(10_000 * CPF_INTEREST.extraBelow55.value, 4);
-    expect(end.ra).toBe(0);
+    expect(result.balances[2].oa).toBeCloseTo(10_000, 4);
+    const december = result.balances[3];
+    const monthsCredited = 4;
+    expect(december.oa).toBeCloseTo(10_000 * (1 + (CPF_INTEREST.ordinaryAccount.value * monthsCredited) / 12), 4);
+    expect(december.sa).toBeCloseTo((10_000 * CPF_INTEREST.extraBelow55.value * monthsCredited) / 12, 4);
+    expect(result.balances[11].oa).toBeCloseTo(december.oa, 4);
+    expect(december.ra).toBe(0);
+  });
+
+  it("does not spill MediSave above the 2026 cap once that cap is no longer published", () => {
+    const result = projectCpf({
+      currentAge: 40,
+      months: 16,
+      initial: { oa: 0, sa: 0, ra: 0, ma: 79_000 },
+      wageAtMonth: () => 0,
+      payoutAge: 65,
+    });
+    expect(result.balances[3].ma).toBeCloseTo(79_000, 0);
+    expect(result.balances[15].ma).toBeGreaterThan(79_000);
+    expect(result.bhsEstimated).toBe(true);
+  });
+
+  it("stops extra interest once Ordinary Account savings are withdrawn to cash", () => {
+    const shared = {
+      currentAge: 60,
+      months: 4,
+      initial: { oa: 500_000, sa: 0, ra: 0, ma: 0 },
+      wageAtMonth: () => 0,
+      payoutAge: 65,
+    };
+    const kept = projectCpf(shared);
+    const swept = projectCpf({ ...shared, withdrawOaAtMonth: 0 });
+    expect(swept.oaWithdrawn).toBeGreaterThan(100_000);
+    expect(swept.balances[3].oa).toBeCloseTo(0, 4);
+    expect(kept.balances[3].oa).toBeGreaterThan(swept.oaWithdrawn);
+    const withdrawn = extraInterestSlices({ oa: 0, sa: 0, ra: 5_000, ma: 0 }, 60);
+    const stillThere = extraInterestSlices({ oa: 20_000, sa: 0, ra: 5_000, ma: 0 }, 60);
+    const oaExtra = (slices: ReturnType<typeof extraInterestSlices>) =>
+      slices.reduce((sum, slice) => sum + slice.oa * slice.rate, 0);
+    expect(oaExtra(withdrawn)).toBe(0);
+    expect(oaExtra(stillThere)).toBeCloseTo(20_000 * 0.02, 6);
   });
 
   it("closes the Special Account at 55 into the RA up to the FRS, with the excess to the OA", () => {

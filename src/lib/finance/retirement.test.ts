@@ -80,14 +80,13 @@ describe("calculateRetirement", () => {
     expect(result.valid).toBe(true);
     expect(result.projectedSavings).toBeCloseTo(1333.311, 3);
 
-    // Spending and income scale by 1.02^3 before the first retirement month.
+    // Spending scales by 1.02^3 before retirement. CPF LIFE stays at the flat dollar amount.
     expect(result.monthlySpendingAtRetirement).toBeCloseTo(200 * 1.02 ** 3, 6);
-    expect(result.monthlyIncomeAtRetirement).toBeCloseTo(50 * 1.02 ** 3, 6);
+    expect(result.monthlyIncomeAtRetirement).toBeCloseTo(50, 6);
 
-    const net = 150 * 1.02 ** 3;
-    const withdrawal = (month: number) => net * 1.02 ** month;
-    const nest =
-      withdrawal(2) / 1.01 ** 2 + withdrawal(1) / 1.01 ** 1 + withdrawal(0);
+    const spend0 = 200 * 1.02 ** 3;
+    const withdrawal = (month: number) => spend0 * 1.02 ** month - 50;
+    const nest = withdrawal(0) + withdrawal(1) / 1.01 + withdrawal(2) / 1.01 ** 2;
     expect(result.nestEggNeeded).toBeCloseTo(nest, 6);
     expect(result.gap).toBeCloseTo(1333.311 - nest, 3);
     expect(result.extraMonthlySaving).toBe(0);

@@ -164,8 +164,9 @@ describe("retirement plan", () => {
     expect(estimateNotice(young)).toMatch(/depends on an estimate/);
     expect(estimateNotice(young)).toMatch(/retirement sum after 2027 is an assumption/);
     expect(estimateNotice(young)).toMatch(/2026 CPF LIFE payout ranges/);
-    expect(estimateNotice(young)).toMatch(/Escalating plan/);
-    expect(estimateNotice(young)).toMatch(/housing withdrawals/);
+    expect(estimateNotice(young)).toMatch(/Basic Healthcare Sum after 2026/);
+    expect(estimateNotice(young)).not.toMatch(/Escalating/);
+    expect(estimateNotice(young)).not.toMatch(/accrued-interest/);
 
     const published = calculatePlan({
       ...base,
@@ -178,6 +179,6 @@ describe("retirement plan", () => {
     expect(published.cohortYear).toBe(2026);
     expect(published.retirementSumEstimated).toBe(false);
     expect(estimateNotice(published)).not.toMatch(/after 2027/);
-    expect(estimateNotice(base)).toBeNull();
+    expect(estimateNotice(calculatePlan(base))).toBeNull();
   });
 });

@@ -13,9 +13,8 @@ export interface RetirementInput {
   /** Desired monthly spending in today's money. */
   monthlySpendingToday: number;
   /**
-   * Monthly retirement income such as CPF LIFE, in today's money.
-   * Treated as keeping its purchasing power (it rises with inflation).
-   * Use 0 when there is none.
+   * Monthly retirement income such as CPF LIFE, as a flat dollar amount.
+   * It does not rise with inflation. Spending still does. Use 0 when there is none.
    */
   monthlyRetirementIncomeToday: number;
 }
@@ -71,9 +70,9 @@ export const MODEL_ASSUMPTIONS = [
       "Monthly contributions are added at the end of each working month. They stop when drawdown starts. If you are already retired, further monthly contributions are ignored.",
   },
   {
-    title: "Spending and income are in today’s prices",
+    title: "Spending rises with prices. CPF LIFE stays flat",
     detail:
-      "Desired spending, and any CPF LIFE payout, are entered in today’s money. Both rise with inflation up to retirement and then every month after that, so they keep the same purchasing power.",
+      "Desired spending is entered in today’s money and rises with inflation. A CPF LIFE payout is a flat dollar amount. It does not rise with inflation, which matches the main planner.",
   },
   {
     title: "Withdrawals come out at the start of the month",
@@ -253,18 +252,20 @@ export function calculateRetirement(input: RetirementInput): RetirementResult {
   const yearsUntilDrawdown = monthsToRetirement / 12;
   const inflationToDrawdown = (1 + input.annualInflation) ** yearsUntilDrawdown;
   const monthlySpendingAtRetirement = input.monthlySpendingToday * inflationToDrawdown;
-  const monthlyIncomeAtRetirement = input.monthlyRetirementIncomeToday * inflationToDrawdown;
-  const firstNetWithdrawal = Math.max(0, monthlySpendingAtRetirement - monthlyIncomeAtRetirement);
-
-  const nestEggNeeded = nestEggForWithdrawals({
-    firstNetWithdrawal,
-    monthlyReturn,
-    monthlyGrowth,
-    months: monthsInRetirement,
-  });
+  const monthlyIncomeAtRetirement = input.monthlyRetirementIncomeToday;
+  const nets: number[] = [];
+  let spendingForNest = monthlySpendingAtRetirement;
+  for (let month = 0; month < monthsInRetirement; month += 1) {
+    nets.push(Math.max(0, spendingForNest - monthlyIncomeAtRetirement));
+    spendingForNest *= monthlyGrowth;
+  }
+  let nestEggNeeded = 0;
+  for (let month = nets.length - 1; month >= 0; month -= 1) {
+    nestEggNeeded = nestEggNeeded / (1 + monthlyReturn) + nets[month];
+  }
 
   let spending = monthlySpendingAtRetirement;
-  let income = monthlyIncomeAtRetirement;
+  const income = monthlyIncomeAtRetirement;
   let moneyRunsOutAge: number | null = null;
   let endingBalance = balance;
 
@@ -284,7 +285,6 @@ export function calculateRetirement(input: RetirementInput): RetirementResult {
     endingBalance = balance;
     push(monthsToRetirement + month + 1, "drawdown", balance);
     spending *= monthlyGrowth;
-    income *= monthlyGrowth;
   }
 
   if (!Number.isFinite(projectedSavings) || !Number.isFinite(nestEggNeeded) || !Number.isFinite(balance)) {

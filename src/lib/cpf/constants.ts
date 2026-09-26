@@ -218,16 +218,54 @@ export interface RetirementSumYear {
   /** Calendar year the member turns 55. BRS and FRS stay fixed for that cohort. */
   yearTurning55: number;
   brs: number;
+  /** Stored explicitly. ERS was 3 x BRS through 2024 and 4 x BRS from 2025. */
+  ers: number;
+  source: string;
 }
 
+export const RETIREMENT_SUM_SOURCE_2016 =
+  "https://www.cpf.gov.sg/content/dam/web/member/infohub/documents/YourCPF_MoreFlexibilityMoreOptionsEnglish.pdf";
+
+export const RETIREMENT_SUM_SOURCE_2017_2022 =
+  "https://www.cpf.gov.sg/content/dam/web/member/retirement-income/documents/19%20Feb%20New%20RS.pdf";
+
+/** 2023 and 2024 only. That page’s 2025–2027 Enhanced Retirement Sum was later raised to 4 x BRS. */
+export const RETIREMENT_SUM_SOURCE_2023_2024 =
+  "https://www.cpf.gov.sg/member/infohub/news/cpf-related-announcements/budget-highlights-2022";
+
 /**
- * Published retirement sums. FRS is 2 x BRS. From 2025 the ERS is 4 x BRS
- * (it used to be 3 x BRS). Sums after 2027 are not published.
+ * Published retirement sums. FRS is 2 x BRS. Cohorts before 2016 are not in
+ * these PDFs; callers use 2016 and must label that as an estimate. Sums
+ * after 2027 are not published.
  */
 export const PUBLISHED_RETIREMENT_SUMS: RetirementSumYear[] = [
-  { yearTurning55: 2025, brs: 106_500 },
-  { yearTurning55: 2026, brs: 110_200 },
-  { yearTurning55: 2027, brs: 114_100 },
+  { yearTurning55: 2016, brs: 80_500, ers: 241_500, source: RETIREMENT_SUM_SOURCE_2016 },
+  { yearTurning55: 2017, brs: 83_000, ers: 249_000, source: RETIREMENT_SUM_SOURCE_2017_2022 },
+  { yearTurning55: 2018, brs: 85_500, ers: 256_500, source: RETIREMENT_SUM_SOURCE_2017_2022 },
+  { yearTurning55: 2019, brs: 88_000, ers: 264_000, source: RETIREMENT_SUM_SOURCE_2017_2022 },
+  { yearTurning55: 2020, brs: 90_500, ers: 271_500, source: RETIREMENT_SUM_SOURCE_2017_2022 },
+  { yearTurning55: 2021, brs: 93_000, ers: 279_000, source: RETIREMENT_SUM_SOURCE_2017_2022 },
+  { yearTurning55: 2022, brs: 96_000, ers: 288_000, source: RETIREMENT_SUM_SOURCE_2017_2022 },
+  { yearTurning55: 2023, brs: 99_400, ers: 298_200, source: RETIREMENT_SUM_SOURCE_2023_2024 },
+  { yearTurning55: 2024, brs: 102_900, ers: 308_700, source: RETIREMENT_SUM_SOURCE_2023_2024 },
+  {
+    yearTurning55: 2025,
+    brs: 106_500,
+    ers: 426_000,
+    source: "https://www.cpf.gov.sg/member/infohub/educational-resources/what-is-the-cpf-retirement-sum",
+  },
+  {
+    yearTurning55: 2026,
+    brs: 110_200,
+    ers: 440_800,
+    source: "https://www.cpf.gov.sg/member/infohub/educational-resources/what-is-the-cpf-retirement-sum",
+  },
+  {
+    yearTurning55: 2027,
+    brs: 114_100,
+    ers: 456_400,
+    source: "https://www.cpf.gov.sg/member/infohub/educational-resources/what-is-the-cpf-retirement-sum",
+  },
 ];
 
 /**
@@ -332,12 +370,44 @@ export const WITHDRAWAL_IF_BELOW_FRS = {
   note: "You may withdraw up to this amount at 55 if the Full Retirement Sum is not set aside. This plan leaves it in the Retirement Account so it can support CPF LIFE.",
 } as const;
 
+export const BHS_SOURCE_2023 =
+  "https://www.cpf.gov.sg/member/infohub/news/news-releases/cpf-interest-rates-from-1-january-2023-to-31-march-2023-and-basic-healthcare-sum-for-2023";
+
+export const BHS_SOURCE_2024 =
+  "https://www.cpf.gov.sg/member/infohub/news/news-releases/cpf-interest-rates-from-1-january-2024-to-31-march-2024-and-basic-healthcare-sum-for-2024";
+
+export const BHS_SOURCE_2025 =
+  "https://www.cpf.gov.sg/member/infohub/news/news-releases/cpf-interest-rates-from-1-january-to-31-march-2025-and-basic-healthcare-sum-for-2025";
+
+export const BHS_SOURCE_2026 =
+  "https://www.cpf.gov.sg/member/infohub/news/news-releases/cpf-interest-rates-from-1-january-to-31-march-2026-and-basic-healthcare-sum-for-2026";
+
+/**
+ * Basic Healthcare Sum by calendar year, for members under 65, and the cap
+ * fixed for life for members who turn 65 in that year. 2022 is the figure
+ * the 2023 release says the sum was raised from. Years after 2026 are not
+ * published; the projection does not invent them.
+ */
+export const PUBLISHED_BASIC_HEALTHCARE_SUMS = [
+  { year: 2022, value: 66_000, source: BHS_SOURCE_2023 },
+  { year: 2023, value: 68_500, source: BHS_SOURCE_2023 },
+  { year: 2024, value: 71_500, source: BHS_SOURCE_2024 },
+  { year: 2025, value: 75_500, source: BHS_SOURCE_2025 },
+  { year: 2026, value: 79_000, source: BHS_SOURCE_2026 },
+] as const;
+
 export const BASIC_HEALTHCARE_SUM = {
   value: 79_000,
   year: 2026,
-  source:
-    "https://www.cpf.gov.sg/member/infohub/news/news-releases/cpf-interest-rates-from-1-january-to-31-march-2026-and-basic-healthcare-sum-for-2026",
-  note: "Applies in 2026 to members below 65, and is fixed for members who turn 65 in 2026. Later years are not published here.",
+  source: BHS_SOURCE_2026,
+  note: "Applies in 2026 to members below 65, and is fixed for members who turn 65 in 2026. Later years are not published. The plan does not keep using this cap after 2026.",
+} as const;
+
+/** Home Purchase Planner: interest is calculated monthly and credited at the end of December. */
+export const CPF_INTEREST_CREDIT = {
+  month: "December",
+  source: "https://www.cpf.gov.sg/member/tools-and-services/planners/home-purchase",
+  note: "Credited at the end of December. Computed on each month’s balance, not compounded monthly.",
 } as const;
 
 export const PLANNING_YEAR = 2026;
@@ -350,12 +420,46 @@ function scheduleForYear<T extends { year: number }>(schedules: readonly T[], ye
   return chosen;
 }
 
-/** September 2026 is month 0, so January 2027 is month 4. */
+/** September 2026 is month 0, so January 2027 is month 4 and December 2026 is month 3. */
 export function calendarYearAtMonth(monthFromNow: number, asOf = CPF_CONSTANTS_AS_OF): number {
   const [yearText, monthText] = asOf.split("-");
   const year = Number(yearText);
   const monthIndex = Number(monthText) - 1;
   return year + Math.floor((monthIndex + monthFromNow) / 12);
+}
+
+/** True on the December of the projection, which is when CPF’s planner credits interest. */
+export function isInterestCreditMonth(monthFromNow: number, asOf = CPF_CONSTANTS_AS_OF): boolean {
+  const monthIndex = Number(asOf.split("-")[1]) - 1;
+  return (monthIndex + monthFromNow) % 12 === 11;
+}
+
+export interface HealthcareSumCap {
+  /** Null when that year’s Basic Healthcare Sum is not published. Do not invent one. */
+  cap: number | null;
+  estimated: boolean;
+  yearUsed: number | null;
+}
+
+/**
+ * Cap that applies this month. Under 65, use the published sum for the
+ * calendar year. From 65, use the sum for the year the member turned 65.
+ * A year before the first cited figure falls back to that figure and is an
+ * estimate. A later year has no cap: spilling at the 2026 figure would
+ * overstate the Retirement Account.
+ */
+export function basicHealthcareSumCap(input: {
+  calendarYear: number;
+  age: number;
+  yearTurning65: number;
+}): HealthcareSumCap {
+  const rows = [...PUBLISHED_BASIC_HEALTHCARE_SUMS];
+  const first = rows[0];
+  const yearNeeded = input.age >= 65 ? input.yearTurning65 : input.calendarYear;
+  const exact = rows.find((row) => row.year === yearNeeded);
+  if (exact) return { cap: exact.value, estimated: false, yearUsed: exact.year };
+  if (yearNeeded < first.year) return { cap: first.value, estimated: true, yearUsed: first.year };
+  return { cap: null, estimated: true, yearUsed: null };
 }
 
 export function ordinaryCeilingForYear(year: number): number {
@@ -396,7 +500,7 @@ export function retirementSumsForCohort(yearTurning55: number): {
     return {
       brs: exact.brs,
       frs: exact.brs * 2,
-      ers: exact.brs * multiple,
+      ers: exact.ers,
       estimated: false,
       yearUsed: exact.yearTurning55,
     };
@@ -406,7 +510,7 @@ export function retirementSumsForCohort(yearTurning55: number): {
     return {
       brs: first.brs,
       frs: first.brs * 2,
-      ers: first.brs * multiple,
+      ers: first.ers,
       estimated: true,
       yearUsed: first.yearTurning55,
     };

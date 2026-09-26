@@ -1,14 +1,15 @@
 import {
-  BASIC_HEALTHCARE_SUM,
   CPF_INTEREST,
   CPF_LIFE_DEFERRAL,
   CPF_LIFE_PAYOUT_ANCHORS,
   CPF_WAGE,
   PLANNING_YEAR,
   allocationBand,
+  basicHealthcareSumCap,
   calendarYearAtMonth,
   contributionBand,
   cpfLifeDeferralMultiplier,
+  isInterestCreditMonth,
   ordinaryCeilingForYear,
   retirementSumsForCohort,
   yearTurning55,
@@ -32,6 +33,12 @@ export interface CpfProjectionInput {
   oaPaymentAtMonth?: (month: number) => number;
   /** Age when CPF LIFE payouts are estimated to start. Clamped to 65–70. */
   payoutAge: number;
+  /**
+   * Month when remaining Ordinary Account savings are moved to cash.
+   * From that month the balance earns no further interest, including the
+   * extra interest that would have gone into the Retirement Account.
+   */
+  withdrawOaAtMonth?: number | null;
 }
 
 export interface CpfProjection {
@@ -48,6 +55,10 @@ export interface CpfProjection {
   fullRetirementSum: number;
   /** True when the payout, a post-2027 retirement sum, or deferred payout factor is an estimate. */
   reliesOnEstimate: boolean;
+  /** Ordinary Account moved to cash. Zero when nothing is withdrawn. */
+  oaWithdrawn: number;
+  /** True when a Basic Healthcare Sum in this projection is not a published figure. */
+  bhsEstimated: boolean;
 }
 
 function emptyBalances(): CpfBalances {
@@ -189,10 +200,9 @@ function addSpecialOrRetirement(
   balances.oa += amount - toRa;
 }
 
-/** MediSave above the Basic Healthcare Sum flows out. Retirement Account interest is allowed to grow past the FRS. */
-function spillMedisave(balances: CpfBalances, fullRetirementSum: number, age: number): void {
-  const cap = BASIC_HEALTHCARE_SUM.value;
-  if (balances.ma <= cap) return;
+/** MediSave above a published Basic Healthcare Sum flows out. A missing cap means do not spill. */
+function spillMedisave(balances: CpfBalances, fullRetirementSum: number, age: number, cap: number | null): void {
+  if (cap === null || balances.ma <= cap) return;
   const excess = balances.ma - cap;
   balances.ma = cap;
   if (age < 55) balances.sa += excess;
@@ -202,6 +212,7 @@ function spillMedisave(balances: CpfBalances, fullRetirementSum: number, age: nu
 export function projectCpf(input: CpfProjectionInput): CpfProjection {
   const startMonths = Math.round(input.currentAge * 12);
   const cohortYear = yearTurning55(input.currentAge);
+  const yearTurning65 = PLANNING_YEAR + Math.round(65 - input.currentAge);
   const sums = retirementSumsForCohort(cohortYear);
   const payoutAge = Math.min(
     CPF_LIFE_DEFERRAL.latestAge,
@@ -216,6 +227,8 @@ export function projectCpf(input: CpfProjectionInput): CpfProjection {
   let payout = 0;
   let payoutStartMonth: number | null = null;
   let saw65 = input.currentAge >= 65;
+  let oaWithdrawn = 0;
+  let bhsEstimated = false;
 
   const push = () => balances.push(clone(current));
 
@@ -244,7 +257,18 @@ export function projectCpf(input: CpfProjectionInput): CpfProjection {
       sums.frs,
       age,
     );
-    spillMedisave(current, sums.frs, age);
+    const healthcare = basicHealthcareSumCap({
+      calendarYear: calendarYearAtMonth(month),
+      age,
+      yearTurning65,
+    });
+    if (healthcare.estimated) bhsEstimated = true;
+    spillMedisave(current, sums.frs, age, healthcare.cap);
+
+    if (input.withdrawOaAtMonth === month) {
+      oaWithdrawn = current.oa;
+      current.oa = 0;
+    }
 
     accrued.oa += (current.oa * CPF_INTEREST.ordinaryAccount.value) / 12;
     accrued.sa += (current.sa * CPF_INTEREST.specialMedisaveRetirement.value) / 12;
@@ -258,7 +282,7 @@ export function projectCpf(input: CpfProjectionInput): CpfProjection {
       accrued.ma += slice.ma * monthly;
     }
 
-    const creditNow = (month + 1) % 12 === 0;
+    const creditNow = isInterestCreditMonth(month);
     if (creditNow) {
       current.oa += accrued.oa;
       current.ma += accrued.ma;
@@ -271,7 +295,13 @@ export function projectCpf(input: CpfProjectionInput): CpfProjection {
       }
       accrued = emptyBalances();
       accruedExtraToRetirement = 0;
-      spillMedisave(current, sums.frs, age);
+      const healthcareAfterCredit = basicHealthcareSumCap({
+        calendarYear: calendarYearAtMonth(month),
+        age,
+        yearTurning65,
+      });
+      if (healthcareAfterCredit.estimated) bhsEstimated = true;
+      spillMedisave(current, sums.frs, age, healthcareAfterCredit.cap);
     }
 
     if (!saw65 && age >= 65) {
@@ -316,6 +346,8 @@ export function projectCpf(input: CpfProjectionInput): CpfProjection {
     retirementSumEstimated: sums.estimated,
     fullRetirementSum: sums.frs,
     reliesOnEstimate: true,
+    oaWithdrawn,
+    bhsEstimated,
   };
 }
 

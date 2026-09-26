@@ -4,6 +4,7 @@ import {
   gapBand,
   getTrackedEvents,
   retirementAgeBand,
+  shouldTrackAdjustmentAfterVerdict,
   track,
   verdictAnalyticsProps,
 } from "./track";
@@ -21,6 +22,7 @@ describe("analytics", () => {
         hasHousingLoan: true,
         hasChildren: false,
         reliesOnEstimate: true,
+        isFirstVerdict: true,
       }),
     );
     const verdict = getTrackedEvents()[1];
@@ -32,7 +34,17 @@ describe("analytics", () => {
       has_housing_loan: true,
       has_children: false,
       relies_on_estimate: true,
+      is_first_verdict: true,
     });
+    expect(verdictAnalyticsProps({
+      outcome: "on-track",
+      gap: 0,
+      retirementAge: 65,
+      hasHousingLoan: false,
+      hasChildren: false,
+      reliesOnEstimate: false,
+      isFirstVerdict: false,
+    }).is_first_verdict).toBe(false);
     expect(JSON.stringify(verdict.props)).not.toMatch(/220000|salary|balance|instalment/i);
     expect(verdict.props.relies_on_estimate).toBe(true);
 
@@ -50,5 +62,36 @@ describe("analytics", () => {
     expect(gapBand(0)).toBe("none");
     expect(gapBand(80_000)).toBe("under-100k");
     expect(gapBand(-600_000)).toBe("over-500k");
+  });
+
+  it("fires an adjustment once per verdict, then again after the next verdict", () => {
+    expect(
+      shouldTrackAdjustmentAfterVerdict({
+        verdictSeen: true,
+        alreadyTrackedForThisVerdict: false,
+        source: "user",
+      }),
+    ).toBe(true);
+    expect(
+      shouldTrackAdjustmentAfterVerdict({
+        verdictSeen: true,
+        alreadyTrackedForThisVerdict: true,
+        source: "user",
+      }),
+    ).toBe(false);
+    expect(
+      shouldTrackAdjustmentAfterVerdict({
+        verdictSeen: true,
+        alreadyTrackedForThisVerdict: false,
+        source: "suggestion",
+      }),
+    ).toBe(false);
+    expect(
+      shouldTrackAdjustmentAfterVerdict({
+        verdictSeen: false,
+        alreadyTrackedForThisVerdict: false,
+        source: "user",
+      }),
+    ).toBe(false);
   });
 });

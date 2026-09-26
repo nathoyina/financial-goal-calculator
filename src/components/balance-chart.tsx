@@ -120,7 +120,7 @@ export function BalanceChart({
       >
         <title id={`${chartId}-title`}>Savings balance from age {formatAge(minAge)} to {formatAge(maxAge)}</title>
         <desc id={`${chartId}-desc`}>
-          The line rises while you are saving and then falls as you spend in retirement.
+          The solid line is the working years. The dashed line is retirement.
           {moneyRunsOutAge === null
             ? " The balance lasts through the planning age."
             : ` The balance reaches zero at age ${formatAge(moneyRunsOutAge)}.`}
@@ -165,7 +165,14 @@ export function BalanceChart({
         {drawdownLine.length > 0 ? (
           <>
             <path d={areaOf(drawdownLine)} fill="#a8a29e" opacity="0.16" />
-            <path d={pathOf(drawdownLine)} fill="none" stroke="#d6d3d1" strokeWidth="2.5" strokeLinejoin="round" />
+            <path
+              d={pathOf(drawdownLine)}
+              fill="none"
+              stroke="#d6d3d1"
+              strokeWidth="2.5"
+              strokeLinejoin="round"
+              strokeDasharray="8 6"
+            />
           </>
         ) : null}
         {hover ? (
@@ -181,6 +188,30 @@ export function BalanceChart({
             <circle cx={xOf(hover.age)} cy={yOf(hover.balance)} r="4.5" fill="#fafafa" />
           </g>
         ) : null}
+        {accumulation.length > 1 ? (
+          <text
+            x={toXY(accumulation[Math.floor(accumulation.length / 2)]).x}
+            y={Math.max(PAD.top + 16, toXY(accumulation[Math.floor(accumulation.length / 2)]).y - 12)}
+            textAnchor="middle"
+            fill="#fafafa"
+            fontSize="13"
+            fontWeight="700"
+          >
+            Saving
+          </text>
+        ) : null}
+        {drawdown.length > 1 ? (
+          <text
+            x={toXY(drawdown[Math.floor(drawdown.length / 2)]).x}
+            y={Math.max(PAD.top + 16, toXY(drawdown[Math.floor(drawdown.length / 2)]).y - 12)}
+            textAnchor="middle"
+            fill="#d6d3d1"
+            fontSize="13"
+            fontWeight="700"
+          >
+            Retirement
+          </text>
+        ) : null}
         {xTicks.map((age) => (
           <text key={age} x={xOf(age)} y={VIEW_H - 12} textAnchor="middle" fill="#d4d4d4" fontSize="12">
             {formatAge(age)}
@@ -193,8 +224,10 @@ export function BalanceChart({
           Working years
         </span>
         <span className="inline-flex items-center gap-2">
-          <span className="h-1 w-5 rounded-full bg-[#d6d3d1]" aria-hidden="true" />
-          Retirement
+          <svg width="22" height="8" aria-hidden="true" className="shrink-0">
+            <line x1="0" y1="4" x2="22" y2="4" stroke="#d6d3d1" strokeWidth="2" strokeDasharray="4 3" />
+          </svg>
+          Retirement, dashed
         </span>
         {moneyRunsOutAge !== null ? (
           <span className="inline-flex items-center gap-2">

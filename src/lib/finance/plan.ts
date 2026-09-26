@@ -240,6 +240,7 @@ function simulate(input: PlanInput): Simulation {
         wageAtMonth,
         oaPaymentAtMonth: (month) => (input.loan?.paidFrom === "oa" ? (schedule[month]?.payment ?? 0) : 0),
         payoutAge: input.cpf.payoutAge,
+        withdrawOaAtMonth: sweepMonth,
       })
     : null;
 
@@ -255,7 +256,7 @@ function simulate(input: PlanInput): Simulation {
     estimates.push({
       id: "cpf-interest",
       title: "CPF interest",
-      explanation: `Ordinary Account ${oaPercent} and Special, MediSave and Retirement Account ${smraPercent} are the 1 October to 31 December ${CPF_INTEREST.ordinaryAccount.year} floor rates. The ${smraPercent} floor is committed through ${CPF_INTEREST.specialMedisaveRetirement.floorThroughLabel}. This plan keeps both rates for every later year and labels that as an estimate. Interest is computed on each month’s balance and credited once a year, not compounded monthly. The exact credit month was not confirmed, so the plan adds the year’s interest every 12th month.`,
+      explanation: `Ordinary Account ${oaPercent} and Special, MediSave and Retirement Account ${smraPercent} are the 1 October to 31 December ${CPF_INTEREST.ordinaryAccount.year} floor rates. The ${smraPercent} floor is committed through ${CPF_INTEREST.specialMedisaveRetirement.floorThroughLabel}. This plan keeps both rates for every later year and labels that as an estimate. Interest is computed on each month’s balance and credited at the end of December, which is how CPF’s Home Purchase Planner projects it. It is not compounded monthly.`,
     });
     estimates.push({
       id: "escalating-plan-start",
@@ -273,6 +274,14 @@ function simulate(input: PlanInput): Simulation {
         id: "retirement-sum",
         title: "Retirement sum",
         explanation: `CPF’s published table in this plan starts in ${sums.yearUsed}. This plan uses that year’s Full Retirement Sum of $${sums.frs.toLocaleString("en-SG")} for a member who turned 55 in ${cohortYear}, and labels it an estimate.`,
+      });
+    }
+    if (cpf?.bhsEstimated) {
+      estimates.push({
+        id: "basic-healthcare-sum",
+        title: "Basic Healthcare Sum",
+        explanation:
+          "CPF has published the Basic Healthcare Sum through 2026 (S$79,000). Later years are not published, so this plan does not guess a higher cap and does not keep spilling MediSave at the 2026 figure. Extra MediSave stays in MediSave in those years instead of moving into the Retirement Account.",
       });
     }
     if (input.cpf.payoutAge > CPF_LIFE_DEFERRAL.earliestAge) {
@@ -302,7 +311,7 @@ function simulate(input: PlanInput): Simulation {
     const inflated = (1 + input.annualInflation) ** (month / 12);
     const cpfLife =
       cpf && cpf.payoutStartMonth !== null && month >= cpf.payoutStartMonth ? cpf.monthlyPayout : 0;
-    const sweep = sweepMonth === month && cpf ? (cpf.balances[month]?.oa ?? 0) : 0;
+    const sweep = sweepMonth === month && cpf ? cpf.oaWithdrawn : 0;
     const spendingNeed =
       input.monthlyRetirementSpendingToday * inflated -
       cpfLife +
@@ -332,8 +341,7 @@ function simulate(input: PlanInput): Simulation {
       cpf && cpf.payoutStartMonth !== null && month >= cpf.payoutStartMonth ? cpf.monthlyPayout : 0;
     const wage = wageAtMonth(month);
     const employeeCpf = input.includeCpf ? monthlyContributions(age, wage, calendarYearAtMonth(month)).employee : 0;
-    const sweepIncome =
-      sweepMonth === month && cpf && !swept ? (cpf.balances[month]?.oa ?? 0) : 0;
+    const sweepIncome = sweepMonth === month && cpf && !swept ? cpf.oaWithdrawn : 0;
     if (sweepMonth === month && cpf) swept = true;
 
     if (!working) {
@@ -498,14 +506,14 @@ export function estimateNotice(result: Pick<PlanResult, "reliesOnEstimate" | "es
   if (ids.has("retirement-sum") && result.cohortYear > 2027) {
     sentences.push("The retirement sum after 2027 is an assumption, not a published CPF figure.");
   }
+  if (ids.has("retirement-sum") && result.cohortYear < 2016) {
+    sentences.push("The retirement sum for this cohort uses the 2016 figures, the earliest year cited here.");
+  }
   if (ids.has("cpf-life-payout")) {
     sentences.push("The 2026 CPF LIFE payout ranges were not published, so that payout is an estimate.");
   }
-  if (ids.has("escalating-plan-start")) {
-    sentences.push("The Escalating plan’s starting discount is an estimate and is not applied.");
-  }
-  if (ids.has("housing-accrued-interest")) {
-    sentences.push("The accrued-interest rate on housing withdrawals is an estimate and is not charged.");
+  if (ids.has("basic-healthcare-sum")) {
+    sentences.push("The Basic Healthcare Sum after 2026 is not published, so extra MediSave is not moved into the Retirement Account in those years.");
   }
   return sentences.join(" ");
 }

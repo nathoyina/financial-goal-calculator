@@ -1,17 +1,36 @@
 import { describe, expect, it } from "vitest";
 import {
+  basicHealthcareSumCap,
   calendarYearAtMonth,
   cpfLifeDeferralMultiplier,
+  isInterestCreditMonth,
   ordinaryCeilingForYear,
   retirementSumsForCohort,
 } from "./constants";
 import { monthlyContributions } from "./project";
 
 describe("CPF constants", () => {
-  it("maps September 2026 to 2026 and January 2027 to 2027", () => {
+  it("maps September 2026 to 2026 and credits interest in December", () => {
     expect(calendarYearAtMonth(0)).toBe(2026);
     expect(calendarYearAtMonth(3)).toBe(2026);
     expect(calendarYearAtMonth(4)).toBe(2027);
+    expect(isInterestCreditMonth(2)).toBe(false);
+    expect(isInterestCreditMonth(3)).toBe(true);
+    expect(isInterestCreditMonth(15)).toBe(true);
+  });
+
+  it("uses a published Basic Healthcare Sum and does not invent one after 2026", () => {
+    expect(basicHealthcareSumCap({ calendarYear: 2026, age: 40, yearTurning65: 2051 }).cap).toBe(79_000);
+    expect(basicHealthcareSumCap({ calendarYear: 2025, age: 66, yearTurning65: 2025 })).toEqual({
+      cap: 75_500,
+      estimated: false,
+      yearUsed: 2025,
+    });
+    expect(basicHealthcareSumCap({ calendarYear: 2028, age: 40, yearTurning65: 2051 }).cap).toBeNull();
+    const early = basicHealthcareSumCap({ calendarYear: 2026, age: 70, yearTurning65: 2021 });
+    expect(early.estimated).toBe(true);
+    expect(early.yearUsed).toBe(2022);
+    expect(early.cap).toBe(66_000);
   });
 
   it("keeps published retirement sums exact and grows later cohorts as an assumption", () => {
@@ -28,10 +47,21 @@ describe("CPF constants", () => {
     expect(y2028.ers).toBe(472_400);
     expect(y2028.ers).toBe(y2028.brs * 4);
 
-    const early = retirementSumsForCohort(2024);
+    const y2021 = retirementSumsForCohort(2021);
+    expect(y2021.estimated).toBe(false);
+    expect(y2021.brs).toBe(93_000);
+    expect(y2021.frs).toBe(186_000);
+    expect(y2021.ers).toBe(279_000);
+
+    const y2016 = retirementSumsForCohort(2016);
+    expect(y2016.estimated).toBe(false);
+    expect(y2016.brs).toBe(80_500);
+    expect(y2016.ers).toBe(241_500);
+
+    const early = retirementSumsForCohort(2015);
     expect(early.estimated).toBe(true);
-    expect(early.yearUsed).toBe(2025);
-    expect(early.brs).toBe(106_500);
+    expect(early.yearUsed).toBe(2016);
+    expect(early.brs).toBe(80_500);
   });
 
   it("caps deferral at 35% with simple interest", () => {
