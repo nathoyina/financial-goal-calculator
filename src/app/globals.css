@@ -3,8 +3,9 @@
 :root {
   --onyx: #0a0a0a;
   --charcoal: #171717;
+  --void: #262626;
   --yellow: #fde047;
-  --text: #fafafa;
+  --text: #ffffff;
   --muted: #d4d4d4;
   --border: #8d8d8d;
   --danger: #fecaca;
@@ -13,6 +14,7 @@
 @theme inline {
   --color-onyx: var(--onyx);
   --color-charcoal: var(--charcoal);
+  --color-void: var(--void);
   --color-yellow: var(--yellow);
   --color-text: var(--text);
   --color-muted: var(--muted);
@@ -51,23 +53,73 @@ select:focus-visible {
     transform: translate3d(0, 0, 0);
   }
   to {
-    transform: translate3d(-28px, 0, 0);
+    transform: translate3d(-36px, 0, 0);
+  }
+}
+
+.step-rise {
+  animation: step-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes step-rise {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wave-drift {
+  .wave-drift,
+  .step-rise {
     animation: none;
   }
 }
 
-html[data-typing="true"] .wave-drift {
+html[data-typing="true"] .wave-drift,
+html[data-typing="true"] .step-rise {
   animation: none;
 }
 
 .glass {
-  background: rgb(23 23 23 / 0.78);
-  border: 1px solid var(--border);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.06);
-  backdrop-filter: blur(16px);
+  background: rgb(255 255 255 / 0.08);
+  border: 1px solid rgb(255 255 255 / 0.45);
+  border-radius: 32px;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.28),
+    0 24px 40px rgb(0 0 0 / 0.28);
+  backdrop-filter: blur(24px);
+}
+
+.pill {
+  min-height: 44px;
+  border-radius: 9999px;
+  padding: 0.625rem 1.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.pill-shout {
+  background: var(--yellow);
+  color: var(--onyx);
+}
+
+.pill-ghost {
+  border: 2px solid rgb(255 255 255 / 0.45);
+  background: transparent;
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html:not([data-typing="true"]) .pill:hover {
+    transform: scale(1.03);
+  }
+
+  html:not([data-typing="true"]) .pill:active {
+    transform: scale(0.98);
+  }
 }

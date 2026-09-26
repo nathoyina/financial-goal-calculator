@@ -185,41 +185,34 @@ export function PlannerApp() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className={`relative overflow-hidden bg-onyx px-4 sm:px-6 ${step === 0 ? "pt-8 pb-16 sm:pt-12" : "pt-6 pb-10"}`}>
-        <div className="mx-auto w-full max-w-3xl">
-          <p className="text-sm font-semibold text-white">financial-goal-calculator</p>
+      <header className="relative overflow-hidden bg-yellow text-onyx">
+        <div className={`mx-auto w-full max-w-3xl px-4 sm:px-6 ${step === 0 ? "pt-10 pb-28 sm:pt-16 sm:pb-40" : "pt-6 pb-16 sm:pb-20"}`}>
+          <p className="text-xs font-semibold uppercase tracking-[0.22em]">financial-goal-calculator</p>
           {step === 0 ? (
             <>
-              <h1 className="mt-3 max-w-xl text-4xl font-extrabold tracking-tight text-balance text-white sm:text-6xl">
+              <h1 className="mt-4 max-w-4xl text-5xl font-extrabold tracking-tight text-balance sm:text-7xl lg:text-8xl">
                 Can you retire?
               </h1>
-              <p className="mt-4 max-w-xl text-base leading-7 text-muted">
+              <p className="mt-5 max-w-md text-sm font-medium leading-relaxed sm:text-base">
                 A Singapore check for the age you choose. Income, a home loan, CPF, and education all change the answer.
                 Nothing leaves this browser.
               </p>
             </>
           ) : (
-            <h1 className="mt-2 text-2xl font-extrabold tracking-tight text-white">Can you retire?</h1>
+            <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-5xl">Can you retire?</h1>
           )}
         </div>
-        <div className="wave-drift absolute right-0 -bottom-px left-0 h-12 w-[120%]" aria-hidden="true">
-        <svg
-          className="h-full w-full max-w-none"
-          viewBox="0 0 1440 80"
-          preserveAspectRatio="none"
-        >
-          <path
-            fill="#171717"
-            d="M0 42c120 28 240-28 360-20s240 36 360 20 240-40 360-24 240 32 360 16v46H0Z"
-          />
-        </svg>
+        <div className="wave-drift pointer-events-none absolute right-0 -bottom-px left-0 h-16 w-[140%] sm:h-24" aria-hidden="true">
+          <svg className="h-full w-full max-w-none" viewBox="0 0 1440 120" preserveAspectRatio="none">
+            <path fill="#171717" d="M0 78c180 46 260-70 480-34s250 72 430 28 250-78 530-18v66H0Z" />
+          </svg>
         </div>
       </header>
 
-      <main className="flex-1 bg-charcoal px-4 py-6 sm:px-6 sm:py-8">
+      <main className={`relative z-10 flex-1 bg-charcoal px-4 sm:px-6 ${step === VERDICT ? "-mt-6 pt-2 pb-10" : "py-6 sm:py-8"}`}>
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
           <div>
-            <p className="text-sm text-muted">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
               {step < VERDICT ? `Step ${step + 1} of 5 · ${STEP_NAMES[step]}` : "Your verdict"}
             </p>
             <div className="mt-2 flex gap-2" aria-hidden="true">
@@ -229,6 +222,7 @@ export function PlannerApp() {
             </div>
           </div>
 
+          <div key={step} className="step-rise flex flex-col gap-6">
           {step === 0 ? (
             <section className="flex flex-col gap-4">
               <h2 className="text-2xl font-bold tracking-tight">When do you want to stop working?</h2>
@@ -283,7 +277,7 @@ export function PlannerApp() {
                   <NumberField id="loan-instalment" label="Monthly instalment" hint="Optional. Leave blank to calculate it from the balance, rate, and years." value={form.loanInstalment} onChange={(value) => update({ loanInstalment: value })} prefix="S$" error={fieldError("loanInstalment")} />
                   <label className="flex flex-col gap-1.5 text-sm font-medium" htmlFor="loan-from">
                     Paid from
-                    <select id="loan-from" value={form.loanPaidFrom} onChange={(event) => update({ loanPaidFrom: event.target.value as "cash" | "oa" })} className="h-12 rounded-full border border-border bg-onyx px-4 text-base focus-visible:border-yellow focus-visible:ring-2 focus-visible:ring-yellow">
+                    <select id="loan-from" value={form.loanPaidFrom} onChange={(event) => update({ loanPaidFrom: event.target.value as "cash" | "oa" })} className="h-12 rounded-full border border-border bg-void px-4 text-base text-white focus-visible:border-yellow focus-visible:ring-2 focus-visible:ring-yellow">
                       <option value="oa">CPF Ordinary Account</option>
                       <option value="cash">Cash</option>
                     </select>
@@ -316,7 +310,7 @@ export function PlannerApp() {
                 Optional. Each study year is taken from cash savings, inflated from today’s prices. Local or overseas is only a label. You type the cost.
               </p>
               {form.children.map((child, index) => (
-                <fieldset key={child.id} className="flex flex-col gap-4 rounded-3xl border border-border p-4">
+                <fieldset key={child.id} className="flex flex-col gap-4 rounded-[32px] border border-border p-4">
                   <legend className="px-1 text-sm font-semibold">Child {index + 1}</legend>
                   <label className="flex flex-col gap-1.5 text-sm font-medium" htmlFor={`path-${child.id}`}>
                     Path
@@ -329,7 +323,7 @@ export function PlannerApp() {
                           children: form.children.map((item) => (item.id === child.id ? { ...item, path } : item)),
                         });
                       }}
-                      className="h-12 rounded-full border border-border bg-onyx px-4 text-base focus-visible:border-yellow focus-visible:ring-2 focus-visible:ring-yellow"
+                      className="h-12 rounded-full border border-border bg-void px-4 text-base text-white focus-visible:border-yellow focus-visible:ring-2 focus-visible:ring-yellow"
                     >
                       <option value="local">Local university</option>
                       <option value="overseas">Overseas university</option>
@@ -341,14 +335,14 @@ export function PlannerApp() {
                   <NumberField id={`child-start-${child.id}`} label="Age costs start" hint="Often 18 or 19 for university." value={child.startAge} onChange={(value) => update({ children: form.children.map((item) => item.id === child.id ? { ...item, startAge: value } : item) })} error={fieldError("childStartAge")} />
                   <NumberField id={`child-years-${child.id}`} label="Years of costs" hint="One withdrawal a year. Use 1 year for a single lump sum." value={child.years} onChange={(value) => update({ children: form.children.map((item) => item.id === child.id ? { ...item, years: value } : item) })} error={fieldError("childYears")} />
                   <NumberField id={`child-cost-${child.id}`} label="Yearly cost" hint="Fees and living costs for one year, in today’s prices." value={child.yearlyCostToday} onChange={(value) => update({ children: form.children.map((item) => item.id === child.id ? { ...item, yearlyCostToday: value } : item) })} prefix="S$" error={fieldError("childCost")} />
-                  <button type="button" className="min-h-11 self-start rounded-full border border-border px-4 text-sm font-semibold" onClick={() => update({ children: form.children.filter((item) => item.id !== child.id) })}>
+                  <button type="button" className="pill pill-ghost self-start text-sm" onClick={() => update({ children: form.children.filter((item) => item.id !== child.id) })}>
                     Remove
                   </button>
                 </fieldset>
               ))}
               <button
                 type="button"
-                className="min-h-11 self-start rounded-full border border-border px-4 text-sm font-semibold"
+                className="pill pill-ghost self-start text-sm"
                 onClick={() =>
                   update({
                     children: [
@@ -377,20 +371,21 @@ export function PlannerApp() {
 
           <div className="flex flex-wrap gap-3">
             {step > 0 ? (
-              <button type="button" className="min-h-11 rounded-full border border-border px-5 text-base font-semibold" onClick={() => setStep((current) => current - 1)}>
+              <button type="button" className="pill pill-ghost" onClick={() => setStep((current) => current - 1)}>
                 Back
               </button>
             ) : null}
             {step < VERDICT ? (
-              <button type="button" className="min-h-11 rounded-full bg-yellow px-5 text-base font-semibold text-onyx" onClick={() => goNext("complete")}>
+              <button type="button" className="pill pill-shout" onClick={() => goNext("complete")}>
                 {step === 4 ? "See the verdict" : "Continue"}
               </button>
             ) : null}
             {step >= 2 && step < VERDICT ? (
-              <button type="button" className="min-h-11 rounded-full border border-border px-5 text-base font-semibold" onClick={() => goNext("skip")}>
+              <button type="button" className="pill pill-ghost" onClick={() => goNext("skip")}>
                 Skip
               </button>
             ) : null}
+          </div>
           </div>
         </div>
       </main>
@@ -431,7 +426,7 @@ function Verdict({
 
   return (
     <section className="flex flex-col gap-5" aria-live="polite">
-      <div className="glass rounded-[1.75rem] p-5">
+      <div className="glass p-5 sm:p-8">
         <h2 className="text-4xl font-extrabold tracking-tight text-balance text-yellow sm:text-5xl">{sentence}</h2>
         <p className="mt-3 text-base leading-7 text-white">{detail}</p>
         {result.reliesOnEstimate ? (
@@ -443,19 +438,19 @@ function Verdict({
       </div>
 
       <dl className="grid gap-3 sm:grid-cols-2">
-        <div className="glass rounded-[1.75rem] p-4">
+        <div className="glass p-5">
           <dt className="text-sm text-muted">Nest egg needed</dt>
           <dd className="mt-1 text-3xl font-bold tabular-nums tracking-tight">{formatMoney(result.nestEggNeeded)}</dd>
           <p className="mt-2 text-sm leading-5 text-muted">Cash required when you retire, after CPF LIFE, to last until the planning age.</p>
         </div>
-        <div className="glass rounded-[1.75rem] p-4">
+        <div className="glass p-5">
           <dt className="text-sm text-muted">{result.gap >= 0 ? "Surplus" : "Gap"}</dt>
           <dd className="mt-1 text-3xl font-bold tabular-nums tracking-tight">{gap}</dd>
           <p className="mt-2 text-sm leading-5 text-muted">
             Projected cash at retirement is {formatMoney(result.projectedCashAtRetirement)}. The {result.gap >= 0 ? "surplus" : "gap"} is that amount minus the nest egg.
           </p>
         </div>
-        <div className="glass rounded-[1.75rem] p-4">
+        <div className="glass p-5">
           <dt className="flex flex-wrap items-center gap-2 text-sm text-muted">
             CPF LIFE payout
             {input.includeCpf ? (
@@ -475,7 +470,7 @@ function Verdict({
               : "You skipped CPF, so no payout is counted."}
           </p>
         </div>
-        <div className="glass rounded-[1.75rem] p-4">
+        <div className="glass p-5">
           <dt className="text-sm text-muted">Left to save today</dt>
           <dd className="mt-1 text-3xl font-bold tabular-nums tracking-tight">{formatMoney(result.monthlySavingToday)}</dd>
           <p className="mt-2 text-sm leading-5 text-muted">Income minus CPF, spending, and a cash loan instalment, plus any extra you entered.</p>
@@ -486,19 +481,19 @@ function Verdict({
         <div className="flex flex-col gap-3">
           <h3 className="text-lg font-bold">What would fix it</h3>
           {result.earliestRetirementAge !== null ? (
-            <button type="button" className="min-h-11 rounded-full bg-yellow px-5 text-left text-base font-semibold text-onyx" onClick={() => { track("Gap Suggestion Applied", { type: "earliest-age" }); onApply({ retirementAge: String(result.earliestRetirementAge) }, "suggestion"); }}>
+            <button type="button" className="pill pill-shout text-left" onClick={() => { track("Gap Suggestion Applied", { type: "earliest-age" }); onApply({ retirementAge: String(result.earliestRetirementAge) }, "suggestion"); }}>
               Retire at {result.earliestRetirementAge} instead
             </button>
           ) : (
             <p className="text-sm leading-6 text-muted">No later age before the planning age makes this spending last.</p>
           )}
           {result.extraMonthlySaving !== null ? (
-            <button type="button" className="min-h-11 rounded-full border border-border px-5 text-left text-base font-semibold" onClick={() => { track("Gap Suggestion Applied", { type: "extra-saving" }); onApply({ extraMonthlySaving: String(Math.ceil(Number(form.extraMonthlySaving) + result.extraMonthlySaving!)) }, "suggestion"); }}>
+            <button type="button" className="pill pill-ghost text-left" onClick={() => { track("Gap Suggestion Applied", { type: "extra-saving" }); onApply({ extraMonthlySaving: String(Math.ceil(Number(form.extraMonthlySaving) + result.extraMonthlySaving!)) }, "suggestion"); }}>
               Save {formatMoney(result.extraMonthlySaving)} more each month
             </button>
           ) : null}
           {result.spendingCutToday !== null ? (
-            <button type="button" className="min-h-11 rounded-full border border-border px-5 text-left text-base font-semibold" onClick={() => { track("Gap Suggestion Applied", { type: "spending-cut" }); onApply({ monthlyRetirementSpendingToday: String(Math.max(0, Math.floor(input.monthlyRetirementSpendingToday - result.spendingCutToday!))) }, "suggestion"); }}>
+            <button type="button" className="pill pill-ghost text-left" onClick={() => { track("Gap Suggestion Applied", { type: "spending-cut" }); onApply({ monthlyRetirementSpendingToday: String(Math.max(0, Math.floor(input.monthlyRetirementSpendingToday - result.spendingCutToday!))) }, "suggestion"); }}>
               Spend {formatMoney(result.spendingCutToday)} less each month in retirement
             </button>
           ) : null}
@@ -533,7 +528,7 @@ function Verdict({
         </ul>
       </div>
 
-      <aside className="rounded-3xl border border-border p-4">
+      <aside className="rounded-[32px] border border-white/45 p-5">
         <h3 className="text-sm font-semibold text-white">Not financial advice</h3>
         <p className="mt-2 text-sm leading-6 text-muted">
           This is an estimate for planning, not a CPF quote and not a recommendation. Markets, inflation, CPF rules, and your spending will differ. Check the figures with CPF Board or a licensed adviser before you act.
