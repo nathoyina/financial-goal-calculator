@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { EstimateTag } from "@/components/estimate-tag";
 import { BalanceChart } from "@/components/balance-chart";
+import { ChildEducationCard } from "@/components/child-education";
 import { NumberField } from "@/components/number-field";
 import {
   STEP_NAMES,
@@ -29,14 +30,15 @@ import {
   takeHomeExcessSentence,
   yearsUntilRetirementLine,
 } from "@/lib/finance/guidance";
+import { educationStepAnalytics } from "@/lib/finance/education-choice";
 import { pressOptionalButton, showsContinue } from "@/lib/finance/optional-step";
 import { estimateNotice } from "@/lib/finance/plan";
 import {
+  createChildForm,
   DEFAULT_PLAN_FORM,
   parseDecimal,
   parsePlanForm,
   validateStep,
-  type ChildForm,
   type FieldError,
   type OptionalAnswer,
   type PlanFormState,
@@ -203,7 +205,12 @@ export function PlannerApp() {
     }
     const stepName = STEP_NAMES[step];
     if (stepName) {
-      track("Step Completed", stepCompletedProps(stepName, answer === "yes" ? "yes" : undefined));
+      track(
+        "Step Completed",
+        stepName === "education"
+          ? stepCompletedProps(stepName, answer === "yes" ? "yes" : undefined, educationStepAnalytics(form.children))
+          : stepCompletedProps(stepName, answer === "yes" ? "yes" : undefined),
+      );
     }
     setStep((current) => current + 1);
     requestHeadingFocus();
@@ -221,6 +228,7 @@ export function PlannerApp() {
     const mapped = FIELD_IDS[error.field];
     const node =
       (mapped ? document.getElementById(mapped) : null) ??
+      document.getElementById(error.field) ??
       document.querySelector<HTMLElement>("[aria-invalid='true']");
     node?.focus();
   }, [error]);
@@ -413,38 +421,24 @@ export function PlannerApp() {
               {form.childrenAnswer === "yes" ? (
                 <>
               <p className="text-sm leading-6 text-muted">
-                Each study year is taken from cash savings, inflated from today’s prices. Local or overseas is only a label. You type the cost.
+                Each study year is taken from cash savings and inflated from today’s prices. A preset fills the yearly cost. You can change it.
               </p>
               {form.children.map((child, index) => (
-                <fieldset key={child.id} className="flex flex-col gap-4 rounded-[32px] border border-border p-4">
-                  <legend className="px-1 text-sm font-semibold">Child {index + 1}</legend>
-                  <label className="flex flex-col gap-1.5 text-sm font-medium" htmlFor={`path-${child.id}`}>
-                    Path
-                    <select
-                      id={`path-${child.id}`}
-                      value={child.path}
-                      onChange={(event) => {
-                        const path = event.target.value as ChildForm["path"];
-                        update({
-                          children: form.children.map((item) => (item.id === child.id ? { ...item, path } : item)),
-                        });
-                      }}
-                      className="h-12 rounded-full border border-border bg-void px-4 text-base text-white focus-visible:border-yellow focus-visible:ring-2 focus-visible:ring-yellow"
-                    >
-                      <option value="local">Local university</option>
-                      <option value="overseas">Overseas university</option>
-                      <option value="other">Other</option>
-                    </select>
-                    <span className="font-normal text-muted">Does not fill in a fee. Overseas plans are often higher. Use your own yearly figure.</span>
-                  </label>
-                  <NumberField id={`child-age-${child.id}`} label="Child’s age now" hint="Used to time the costs." value={child.currentAge} onChange={(value) => update({ children: form.children.map((item) => item.id === child.id ? { ...item, currentAge: value } : item) })} suffix="years" error={fieldError("childAge")} />
-                  <NumberField id={`child-start-${child.id}`} label="Age costs start" hint="Often 18 or 19 for university." value={child.startAge} onChange={(value) => update({ children: form.children.map((item) => item.id === child.id ? { ...item, startAge: value } : item) })} suffix="years" error={fieldError("childStartAge")} />
-                  <NumberField id={`child-years-${child.id}`} label="Years of costs" hint="One withdrawal a year. Use 1 year for a single lump sum." value={child.years} onChange={(value) => update({ children: form.children.map((item) => item.id === child.id ? { ...item, years: value } : item) })} suffix="years" error={fieldError("childYears")} />
-                  <NumberField id={`child-cost-${child.id}`} label="Yearly cost" hint="Fees and living costs for one year, in today’s prices." value={child.yearlyCostToday} onChange={(value) => update({ children: form.children.map((item) => item.id === child.id ? { ...item, yearlyCostToday: value } : item) })} prefix="S$" error={fieldError("childCost")} />
-                  <button type="button" className="pill pill-ghost self-start text-sm" onClick={() => update({ children: form.children.filter((item) => item.id !== child.id) })}>
-                    Remove
-                  </button>
-                </fieldset>
+                <ChildEducationCard
+                  key={child.id}
+                  child={child}
+                  index={index}
+                  studyError={error?.field === `study-${child.id}` ? error.message : undefined}
+                  overseasError={error?.field === `overseas-${child.id}` ? error.message : undefined}
+                  fieldError={fieldError}
+                  onChild={(next) =>
+                    update({
+                      children: form.children.map((item) => (item.id === child.id ? next : item)),
+                    })
+                  }
+                  onRemove={() => update({ children: form.children.filter((item) => item.id !== child.id) })}
+                  onOpenEstimate={(figure) => track("Estimate Info Opened", { figure })}
+                />
               ))}
               <button
                 id="add-child"
@@ -452,10 +446,7 @@ export function PlannerApp() {
                 className="pill pill-ghost self-start text-sm"
                 onClick={() =>
                   update({
-                    children: [
-                      ...form.children,
-                      { id: `child-${Date.now()}`, currentAge: "", startAge: "19", years: "3", yearlyCostToday: "", path: "local" },
-                    ],
+                    children: [...form.children, createChildForm(`child-${Date.now()}`)],
                   })
                 }
               >

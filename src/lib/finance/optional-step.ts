@@ -1,4 +1,4 @@
-import { STEP_NAMES, stepCompletedProps } from "../analytics/track";
+import { type AnalyticsProp, STEP_NAMES, stepCompletedProps } from "../analytics/track";
 import type { OptionalAnswer, PlanFormState } from "./plan-form";
 
 export function optionalAnswer(step: number, form: PlanFormState): OptionalAnswer {
@@ -19,7 +19,7 @@ export interface OptionalChoice {
   form: PlanFormState;
   /** Set when No completes the step and moves on. Null when Yes only opens the fields. */
   nextStep: number | null;
-  completed: Record<string, string> | null;
+  completed: Record<string, AnalyticsProp> | null;
 }
 
 /** Pressed state for the two buttons. Unanswered means neither is pressed. */
@@ -52,7 +52,7 @@ export interface ChoicePress {
 export interface ChoicePressResult {
   form: PlanFormState;
   nextStep: number | null;
-  completed: Record<string, string> | null;
+  completed: Record<string, AnalyticsProp> | null;
   locked: boolean;
 }
 

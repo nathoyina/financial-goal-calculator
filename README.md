@@ -34,7 +34,7 @@ The form is five steps, then a verdict.
 | Income and expenses | Gross monthly income, optional income growth, monthly expenses now, retirement spending in today’s prices, cash savings, other income you'd save each month, expected return, and inflation. Saving capacity is income minus employee CPF, expenses, and a cash loan, plus that other income. |
 | Housing loan | Optional. Outstanding balance, your interest rate, years left, and whether you pay from the Ordinary Account or from cash. Leave the instalment blank to use the monthly-rest formula, or type the instalment you actually pay. |
 | CPF | Optional. Ordinary Account, Special Account, Retirement Account, and MediSave, plus the age you want CPF LIFE to start (65 to 70). |
-| Education | Optional. One or more children. Local, overseas, or other is a label only. You type the yearly cost. |
+| Education | Optional. One or more children. Local university, an overseas preset, or your own yearly cost and years. |
 
 The example plan is a 35-year-old retiring at 65, planning to age 90, earning S$7,000 a month, spending S$4,000 now and S$3,500 in retirement (today’s prices), with S$40,000 in cash and starter CPF balances. Return 5%, inflation 2.5%, income growth 2%.
 
