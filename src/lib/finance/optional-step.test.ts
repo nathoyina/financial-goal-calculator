@@ -8,7 +8,11 @@ const child = {
   startAge: "19",
   years: "3",
   yearlyCostToday: "12000",
-  path: "local" as const,
+  educationChoice: "custom" as const,
+  overseasPreset: null,
+  startedFrom: "custom" as const,
+  startedOverseas: null,
+  presetEdited: false,
 };
 
 describe("optional yes or no choice", () => {
@@ -54,7 +58,10 @@ describe("optional yes or no choice", () => {
 
     const education = chooseOptionalAnswer(4, { ...DEFAULT_PLAN_FORM, children: [child] }, "no");
     expect(education.nextStep).toBe(5);
-    expect(education.completed).toEqual({ step: "education", answer: "no" });
+    expect(education.completed).toEqual({
+      step: "education",
+      answer: "no",
+    });
     expect(education.form.children).toEqual([child]);
   });
 
@@ -169,7 +176,10 @@ describe("optional yes or no choice", () => {
       activation: "click",
       locked: first.locked,
     });
-    expect(first.completed).toEqual({ step: "education", answer: "no" });
+    expect(first.completed).toEqual({
+      step: "education",
+      answer: "no",
+    });
     expect(second.completed).toBeNull();
     expect(second.nextStep).toBeNull();
     expect([first.completed, second.completed].filter(Boolean)).toHaveLength(1);

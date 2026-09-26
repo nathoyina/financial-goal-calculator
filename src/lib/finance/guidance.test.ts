@@ -160,7 +160,11 @@ describe("optional yes or no", () => {
     startAge: "19",
     years: "3",
     yearlyCostToday: "12000",
-    path: "local" as const,
+    educationChoice: "custom" as const,
+    overseasPreset: null,
+    startedFrom: "custom" as const,
+    startedOverseas: null,
+    presetEdited: false,
   };
 
   it("checks the fields only after Yes", () => {
