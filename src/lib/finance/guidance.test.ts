@@ -349,45 +349,102 @@ describe("savings that keep growing", () => {
     children: [],
   };
 
+  const sentenceFor = (input: PlanInput) => {
+    const result = calculatePlan(input);
+    return {
+      result,
+      sentence: savingsKeepGrowingSentence({
+        currentAge: input.currentAge,
+        retirementAge: input.retirementAge,
+        lifeExpectancy: input.lifeExpectancy,
+        monthlyRetirementSpendingToday: input.monthlyRetirementSpendingToday,
+        annualInflation: input.annualInflation,
+        annualReturn: input.annualReturn,
+        cpfLifeMonthly: result.cpfLifeMonthly,
+        payoutAge: input.cpf.payoutAge,
+        includeCpf: input.includeCpf,
+        cashAtRetirement: result.projectedCashAtRetirement,
+        endingBalance: result.endingBalance,
+        canRetire: result.canRetire,
+      }),
+    };
+  };
+
   it("adds the sentence for the default plan and hides it when spending is above the real return", () => {
-    const result = calculatePlan(defaults);
-    const sentence = savingsKeepGrowingSentence({
-      currentAge: defaults.currentAge,
-      retirementAge: defaults.retirementAge,
-      monthlyRetirementSpendingToday: defaults.monthlyRetirementSpendingToday,
-      annualInflation: defaults.annualInflation,
-      annualReturn: defaults.annualReturn,
-      cpfLifeMonthly: result.cpfLifeMonthly,
-      payoutAge: defaults.cpf.payoutAge,
-      includeCpf: true,
-      cashAtRetirement: result.projectedCashAtRetirement,
-    });
-    const years = 30;
+    const { result, sentence } = sentenceFor(defaults);
+    const years = defaults.retirementAge - defaults.currentAge;
+    const todayAtRetirement = inTodaysMoney(result.projectedCashAtRetirement, years, defaults.annualInflation);
+    const todayAtLifeExpectancy = inTodaysMoney(
+      result.endingBalance,
+      defaults.lifeExpectancy - defaults.currentAge,
+      defaults.annualInflation,
+    );
     const net =
       defaults.monthlyRetirementSpendingToday * (1 + defaults.annualInflation) ** years * 12 -
       result.cpfLifeMonthly * 12;
     const spendRate = net / result.projectedCashAtRetirement;
     const afterInflation = realAnnualReturn(defaults.annualReturn, defaults.annualInflation);
+    expect(result.canRetire).toBe(true);
+    expect(todayAtLifeExpectancy).toBeGreaterThan(todayAtRetirement);
     expect(spendRate).toBeLessThan(afterInflation);
     expect(sentence).toMatch(/spend about \d+\.\d% of your savings a year/);
     expect(sentence).toMatch(/return after inflation, so your savings keep growing/);
     expect(sentence).toContain(`${(spendRate * 100).toFixed(1)}%`);
     expect(sentence).toContain(`${(afterInflation * 100).toFixed(1)}%`);
 
-    const highSpend = calculatePlan({ ...defaults, monthlyRetirementSpendingToday: 20_000 });
-    expect(
-      savingsKeepGrowingSentence({
-        currentAge: defaults.currentAge,
-        retirementAge: defaults.retirementAge,
-        monthlyRetirementSpendingToday: 20_000,
-        annualInflation: defaults.annualInflation,
-        annualReturn: defaults.annualReturn,
-        cpfLifeMonthly: highSpend.cpfLifeMonthly,
-        payoutAge: defaults.cpf.payoutAge,
-        includeCpf: true,
-        cashAtRetirement: highSpend.projectedCashAtRetirement,
-      }),
-    ).toBeNull();
+    const highSpend = sentenceFor({ ...defaults, monthlyRetirementSpendingToday: 20_000 });
+    expect(highSpend.sentence).toBeNull();
+  });
+
+  it("hides the sentence for a shortfall plan", () => {
+    const shortfall: PlanInput = {
+      ...defaults,
+      cashSavings: 0,
+      monthlyIncome: 3_000,
+      monthlyExpensesNow: 2_900,
+      monthlyRetirementSpendingToday: 8_000,
+      extraMonthlySaving: 0,
+      includeCpf: false,
+    };
+    const { result, sentence } = sentenceFor(shortfall);
+    expect(result.canRetire).toBe(false);
+    expect(sentence).toBeNull();
+  });
+
+  it("hides the sentence when the first retirement year survives but today's money is lower at life expectancy", () => {
+    const shrinking: PlanInput = {
+      currentAge: 60,
+      retirementAge: 65,
+      lifeExpectancy: 95,
+      cashSavings: 250_000,
+      monthlyIncome: 0,
+      annualIncomeGrowth: 0,
+      monthlyExpensesNow: 0,
+      monthlyRetirementSpendingToday: 1_500,
+      annualReturn: 0.03,
+      annualInflation: 0.025,
+      extraMonthlySaving: 0,
+      includeCpf: true,
+      cpf: { oa: 0, sa: 0, ra: 330_100, ma: 0, payoutAge: 65 },
+      loan: null,
+      children: [],
+    };
+    const { result, sentence } = sentenceFor(shrinking);
+    const years = shrinking.retirementAge - shrinking.currentAge;
+    const yearly = shrinking.monthlyRetirementSpendingToday * (1 + shrinking.annualInflation) ** years * 12;
+    const spendRate = (yearly - result.cpfLifeMonthly * 12) / result.projectedCashAtRetirement;
+    const yearLater = result.series.find((point) => Math.abs(point.age - (shrinking.retirementAge + 1)) < 1e-6);
+    const todayAtRetirement = inTodaysMoney(result.projectedCashAtRetirement, years, shrinking.annualInflation);
+    const todayAtLifeExpectancy = inTodaysMoney(
+      result.endingBalance,
+      shrinking.lifeExpectancy - shrinking.currentAge,
+      shrinking.annualInflation,
+    );
+    expect(result.canRetire).toBe(true);
+    expect(yearLater && yearLater.balance).toBeGreaterThan(0);
+    expect(spendRate).toBeLessThan(realAnnualReturn(shrinking.annualReturn, shrinking.annualInflation));
+    expect(todayAtLifeExpectancy).toBeLessThan(todayAtRetirement);
+    expect(sentence).toBeNull();
   });
 });
 

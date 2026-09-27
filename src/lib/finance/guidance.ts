@@ -106,13 +106,15 @@ export function displayedBalance(input: {
 }
 
 /**
- * One sentence when retirement spending, after CPF LIFE, is a smaller share of
- * cash than the return left after inflation. Null when cash is missing or the
- * spending rate is not below that return.
+ * One sentence when the plan lasts to life expectancy, the balance in today's
+ * money is higher then than at retirement, and retirement spending after CPF LIFE
+ * is a smaller share of cash than the return left after inflation.
+ * Null when any of those is missing.
  */
 export function savingsKeepGrowingSentence(input: {
   currentAge: number;
   retirementAge: number;
+  lifeExpectancy: number;
   monthlyRetirementSpendingToday: number;
   annualInflation: number;
   annualReturn: number;
@@ -120,7 +122,21 @@ export function savingsKeepGrowingSentence(input: {
   payoutAge: number;
   includeCpf: boolean;
   cashAtRetirement: number;
+  endingBalance: number;
+  canRetire: boolean;
 }): string | null {
+  if (!input.canRetire) return null;
+  const todayAtRetirement = inTodaysMoney(
+    input.cashAtRetirement,
+    input.retirementAge - input.currentAge,
+    input.annualInflation,
+  );
+  const todayAtLifeExpectancy = inTodaysMoney(
+    input.endingBalance,
+    input.lifeExpectancy - input.currentAge,
+    input.annualInflation,
+  );
+  if (!(todayAtLifeExpectancy > todayAtRetirement)) return null;
   if (!(input.cashAtRetirement > 0)) return null;
   const months = Math.round(input.retirementAge * 12) - Math.round(input.currentAge * 12);
   const years = Math.max(0, months) / 12;

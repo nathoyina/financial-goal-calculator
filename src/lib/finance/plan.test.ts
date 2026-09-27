@@ -428,7 +428,6 @@ describe("retirement plan", () => {
     const afterSweep = result.series[sweepIndex + 1];
     expect(afterSweep.balance).toBeCloseTo(marked[0].oaSweep ?? 0, 4);
     const later = result.series[result.series.length - 1];
-    expect(later.balance).toBeGreaterThan((marked[0].oaSweep ?? 0) + 1);
 
     const cpf = projectCpf({
       currentAge: 64,
@@ -440,8 +439,8 @@ describe("retirement plan", () => {
     });
     expect(cpf.balances.slice(12).every((balances) => balances.oa === 0)).toBe(true);
     const credits = cpf.postSweepOaCredits.reduce((sum, amount) => sum + amount, 0);
-    expect(credits).toBeGreaterThan(0);
-    expect(later.balance).toBeCloseTo((marked[0].oaSweep ?? 0) + credits, 4);
+    expect(credits).toBeCloseTo(0, 4);
+    expect(later.balance).toBeCloseTo(marked[0].oaSweep ?? 0, 4);
   });
 
   it("sweeps leftover Ordinary Account savings the month after an OA loan ends", () => {

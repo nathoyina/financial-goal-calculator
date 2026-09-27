@@ -37,8 +37,9 @@ export interface CpfProjectionInput {
    * Month when remaining Ordinary Account savings are moved to cash.
    * The amount includes base Ordinary Account interest already earned that
    * year and not yet credited. From that month the balance stays at zero.
-   * Later Ordinary Account interest and extra interest are returned in
-   * postSweepOaCredits instead of being credited back to an account.
+   * Later base Ordinary Account interest is returned in postSweepOaCredits.
+   * Extra interest is not withdrawable: it goes to the Special or Retirement
+   * Account until CPF LIFE starts, and is left out after that.
    */
   withdrawOaAtMonth?: number | null;
 }
@@ -63,9 +64,8 @@ export interface CpfProjection {
    */
   oaWithdrawn: number;
   /**
-   * Ordinary Account interest and extra interest paid to cash after the
-   * sweep, by month. Empty of value before the sweep. Not credited to the
-   * Retirement Account.
+   * Base Ordinary Account interest paid to cash after the sweep, by month.
+   * Zero before the sweep. Extra interest is never included.
    */
   postSweepOaCredits: number[];
   /** True when a Basic Healthcare Sum in this projection is not a published figure. */
@@ -240,7 +240,6 @@ export function projectCpf(input: CpfProjectionInput): CpfProjection {
   let saw65 = input.currentAge >= 65;
   let oaWithdrawn = 0;
   let oaSwept = false;
-  let pendingExtraForCash = 0;
   const postSweepOaCredits: number[] = [];
   let bhsEstimated = false;
 
@@ -281,10 +280,9 @@ export function projectCpf(input: CpfProjectionInput): CpfProjection {
     spillMedisave(current, sums.frs, age, healthcare.cap);
 
     if (input.withdrawOaAtMonth === month) {
-      oaWithdrawn = current.oa + accrued.oa + pendingExtraForCash;
+      oaWithdrawn = current.oa + accrued.oa;
       current.oa = 0;
       accrued.oa = 0;
-      pendingExtraForCash = 0;
       oaSwept = true;
     }
 
@@ -292,25 +290,23 @@ export function projectCpf(input: CpfProjectionInput): CpfProjection {
     accrued.sa += (current.sa * CPF_INTEREST.specialMedisaveRetirement.value) / 12;
     accrued.ra += (current.ra * CPF_INTEREST.specialMedisaveRetirement.value) / 12;
     accrued.ma += (current.ma * CPF_INTEREST.specialMedisaveRetirement.value) / 12;
-    for (const slice of extraInterestSlices(current, age)) {
-      const monthly = slice.rate / 12;
-      accruedExtraToRetirement += slice.oa * monthly;
-      accrued.sa += slice.sa * monthly;
-      accrued.ra += slice.ra * monthly;
-      accrued.ma += slice.ma * monthly;
+    const payoutAlreadyStarted = payoutStartMonth !== null;
+    if (!payoutAlreadyStarted) {
+      for (const slice of extraInterestSlices(current, age)) {
+        const monthly = slice.rate / 12;
+        accruedExtraToRetirement += slice.oa * monthly;
+        accrued.sa += slice.sa * monthly;
+        accrued.ra += slice.ra * monthly;
+        accrued.ma += slice.ma * monthly;
+      }
     }
 
     const creditNow = isInterestCreditMonth(month);
     if (creditNow) {
-      const payoutBlocksExtra = payoutStartMonth !== null;
-      if (oaSwept) {
-        postSweepOaCredits[month] += accrued.oa + accruedExtraToRetirement;
-      } else {
-        current.oa += accrued.oa;
-        if (payoutBlocksExtra) pendingExtraForCash += accruedExtraToRetirement;
-      }
+      if (oaSwept) postSweepOaCredits[month] += accrued.oa;
+      else current.oa += accrued.oa;
       current.ma += accrued.ma;
-      const extraForAccounts = oaSwept || payoutBlocksExtra ? 0 : accruedExtraToRetirement;
+      const extraForAccounts = payoutAlreadyStarted ? 0 : accruedExtraToRetirement;
       if (age >= 55) {
         current.ra += accrued.ra + accrued.sa + extraForAccounts;
         current.sa = 0;

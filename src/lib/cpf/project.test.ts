@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CPF_INTEREST } from "./constants";
+import { CPF_INTEREST, calendarYearAtMonth, isInterestCreditMonth } from "./constants";
 import {
   closeSpecialAccount,
   estimateStandardPayout,
@@ -138,33 +138,76 @@ describe("CPF projection", () => {
   it("includes this year's Ordinary Account interest in the sweep, once, and pays later interest to cash", () => {
     const initialOa = 120_000;
     const sweepAt = 2;
+    const months = 8;
+    const wageAfterSweep = 4_000;
     const result = projectCpf({
       currentAge: 50,
-      months: 8,
+      months,
       initial: { oa: initialOa, sa: 0, ra: 0, ma: 40_000 },
-      wageAtMonth: () => 0,
+      wageAtMonth: (month) => (month <= sweepAt ? 0 : wageAfterSweep),
       payoutAge: 65,
       withdrawOaAtMonth: sweepAt,
     });
 
     const monthly = CPF_INTEREST.ordinaryAccount.value / 12;
     const extraMonthly = CPF_INTEREST.extraBelow55.value / 12;
-    const oaInExtra = Math.min(initialOa, CPF_INTEREST.extraBelow55.ordinaryCap);
+    const oaCap = CPF_INTEREST.extraBelow55.ordinaryCap;
     let accrued = 0;
-    let extra = 0;
+    let extraBeforeSweep = 0;
     for (let month = 0; month < sweepAt; month += 1) {
       accrued += initialOa * monthly;
-      extra += oaInExtra * extraMonthly;
+      extraBeforeSweep += Math.min(initialOa, oaCap) * extraMonthly;
+    }
+
+    let oa = 0;
+    let baseAfterSweep = 0;
+    let extraAfterSweep = 0;
+    for (let month = sweepAt; month < months; month += 1) {
+      const wage = month <= sweepAt ? 0 : wageAfterSweep;
+      const age = (Math.round(50 * 12) + month) / 12;
+      oa += monthlyContributions(age, wage, calendarYearAtMonth(month)).allocation.oa;
+      if (month === sweepAt) oa = 0;
+      baseAfterSweep += oa * monthly;
+      extraAfterSweep += Math.min(oa, oaCap) * extraMonthly;
+      if (isInterestCreditMonth(month)) break;
     }
 
     expect(result.oaWithdrawn).toBeCloseTo(initialOa + accrued, 6);
-    expect(result.balances.slice(sweepAt).every((balances) => balances.oa === 0)).toBe(true);
-    const credited = result.postSweepOaCredits.reduce((sum, amount) => sum + amount, 0);
-    expect(credited).toBeCloseTo(extra, 6);
+    expect(result.oaWithdrawn).toBeLessThan(initialOa + accrued + extraBeforeSweep);
     expect(result.postSweepOaCredits.slice(0, sweepAt).every((amount) => amount === 0)).toBe(true);
-    expect(result.oaWithdrawn + credited).toBeCloseTo(initialOa + accrued + extra, 6);
+    const credited = result.postSweepOaCredits.reduce((sum, amount) => sum + amount, 0);
+    expect(baseAfterSweep).toBeGreaterThan(0);
+    expect(credited).toBeCloseTo(baseAfterSweep, 4);
+    expect(credited).toBeLessThan(baseAfterSweep + extraBeforeSweep + extraAfterSweep - 1);
+    expect(result.balances[3].sa).toBeGreaterThan(extraBeforeSweep);
     expect(result.balances.every((balances) => balances.ma > 30_000)).toBe(true);
-    expect(result.oaWithdrawn).toBeLessThan(initialOa + accrued + 1_000);
+  });
+
+  it("pays none of a sizeable MediSave balance into cash after the sweep", () => {
+    const shared = {
+      currentAge: 60,
+      months: 16,
+      wageAtMonth: () => 0,
+      payoutAge: 70,
+      withdrawOaAtMonth: 1,
+    };
+    const without = projectCpf({
+      ...shared,
+      initial: { oa: 80_000, sa: 0, ra: 250_000, ma: 0 },
+    });
+    const withMedisave = projectCpf({
+      ...shared,
+      initial: { oa: 80_000, sa: 0, ra: 250_000, ma: 70_000 },
+    });
+    expect(withMedisave.oaWithdrawn).toBeCloseTo(without.oaWithdrawn, 4);
+    expect(withMedisave.postSweepOaCredits.length).toBe(without.postSweepOaCredits.length);
+    withMedisave.postSweepOaCredits.forEach((amount, month) => {
+      expect(amount).toBeCloseTo(without.postSweepOaCredits[month], 4);
+    });
+    expect(withMedisave.balances[withMedisave.balances.length - 1].ma).toBeGreaterThan(70_000);
+    expect(withMedisave.oaWithdrawn + withMedisave.postSweepOaCredits.reduce((sum, amount) => sum + amount, 0)).toBeLessThan(
+      80_000 + 20_000,
+    );
   });
 
   it("keeps the Retirement Account at zero from the month CPF LIFE starts", () => {

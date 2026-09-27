@@ -28,6 +28,9 @@ describe("Estimate tag", () => {
     expect(html).not.toContain('role="button"');
     expect(html).not.toContain("focus-visible");
     expect(html.startsWith("<span")).toBe(true);
+    expect(html).not.toContain("min-h-11");
+    expect(html).not.toContain("border");
+    expect(html).not.toContain("rounded-full");
   });
 
   it("shows the label on an education preset and hides it for Custom", () => {

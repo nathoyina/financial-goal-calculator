@@ -556,6 +556,7 @@ function Verdict({
   const growthSentence = savingsKeepGrowingSentence({
     currentAge: input.currentAge,
     retirementAge: input.retirementAge,
+    lifeExpectancy: input.lifeExpectancy,
     monthlyRetirementSpendingToday: input.monthlyRetirementSpendingToday,
     annualInflation: input.annualInflation,
     annualReturn: input.annualReturn,
@@ -563,6 +564,8 @@ function Verdict({
     payoutAge: input.cpf.payoutAge,
     includeCpf: input.includeCpf,
     cashAtRetirement: result.projectedCashAtRetirement,
+    endingBalance: result.endingBalance,
+    canRetire: result.canRetire,
   });
   const sentence = result.canRetire
     ? `Yes. You can retire at ${formatAge(input.retirementAge)}.`

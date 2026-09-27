@@ -39,7 +39,7 @@ function yearlyRows(series: BalancePoint[]): BalancePoint[] {
 }
 
 function modeLabel(mode: DollarMode): string {
-  return mode === "today" ? "today's dollars" : "future dollars";
+  return mode === "today" ? "Today's money" : "Future money";
 }
 
 export function BalanceChart({
@@ -111,7 +111,7 @@ export function BalanceChart({
 
   const hover = hoverIndex === null ? null : series[hoverIndex];
   const rows = yearlyRows(series);
-  const axisName = mode === "today" ? "Today's dollars" : "Future dollars";
+  const axisName = modeLabel(mode);
 
   const move = (clientX: number, bounds: DOMRect) => {
     const viewX = ((clientX - bounds.left) / bounds.width) * VIEW_W;
@@ -145,7 +145,7 @@ export function BalanceChart({
           aria-pressed={mode === "future"}
           onClick={() => setMode("future")}
         >
-          Future dollars
+          Future money
         </button>
       </div>
       <p id={`${chartId}-mode`} aria-live="polite" className="text-sm font-semibold text-yellow">
@@ -287,8 +287,8 @@ export function BalanceChart({
       <figcaption className="flex flex-col gap-2 text-sm leading-6 text-[#D4D4D4]">
         <p>
           {mode === "today"
-            ? "Showing today's money. Each amount is the future balance divided by inflation since today."
-            : "Showing future dollars, the balance in the year it is reached, before adjusting for inflation."}
+            ? "Showing Today's money. Each amount is the future balance divided by inflation since today."
+            : "Showing Future money, the balance in the year it is reached, before adjusting for inflation."}
         </p>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <span className="inline-flex items-center gap-2">
