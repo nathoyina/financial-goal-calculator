@@ -14,6 +14,7 @@ export function NumberField({
   describedByExtra,
   labelAddon,
   onBlur,
+  placeholder,
 }: {
   id: string;
   label: string;
@@ -28,6 +29,7 @@ export function NumberField({
   describedByExtra?: string;
   labelAddon?: ReactNode;
   onBlur?: (value: string) => void;
+  placeholder?: string;
 }) {
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
@@ -64,9 +66,10 @@ export function NumberField({
           inputMode="decimal"
           autoComplete="off"
           spellCheck={false}
+          placeholder={placeholder}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy}
-          className="h-full w-full min-w-0 bg-transparent px-4 text-base tabular-nums text-white outline-none"
+          className="h-full w-full min-w-0 bg-transparent px-4 text-base tabular-nums text-white outline-none placeholder:text-muted"
         />
         {suffix ? (
           <span className="pr-4 text-sm text-muted" aria-hidden="true">

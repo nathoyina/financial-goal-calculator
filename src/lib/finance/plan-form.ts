@@ -68,12 +68,10 @@ export const DEFAULT_PLAN_FORM: PlanFormState = {
   annualReturn: "5",
   annualInflation: "2.5",
   extraMonthlySaving: "0",
-  // Answering No used to leave the projection out and feed these zeros.
-  // Leaving the fields here does the same. Any other balance includes CPF.
-  oa: "0",
-  sa: "0",
-  ra: "0",
-  ma: "0",
+  oa: "",
+  sa: "",
+  ra: "",
+  ma: "",
   payoutAge: "65",
   hasLoan: false,
   loanAnswer: null,
@@ -103,6 +101,28 @@ function readNumber(raw: string, field: string, label: string): number | FieldEr
 
 function isFieldError(value: number | FieldError): value is FieldError {
   return typeof value !== "number";
+}
+
+/** Blank CPF balances count as zero and do not block Continue. */
+function readCpfBalance(raw: string, field: string, label: string): number | FieldError {
+  if (raw.trim() === "") return 0;
+  return readNumber(raw, field, label);
+}
+
+/** CPF closes the Special Account at 55, so the step asks for the Retirement Account instead. */
+export function showsRetirementAccount(currentAge: number): boolean {
+  return currentAge >= 55;
+}
+
+/** Yes when any balance the step is asking for is above zero. Amounts are not recorded. */
+export function enteredCpfBalances(form: PlanFormState): "yes" | "no" {
+  const age = parseDecimal(form.currentAge);
+  const fields = [form.oa, form.ma, age !== null && showsRetirementAccount(age) ? form.ra : form.sa];
+  const entered = fields.some((raw) => {
+    const value = parseDecimal(raw);
+    return value !== null && value > 0;
+  });
+  return entered ? "yes" : "no";
 }
 
 /** Step checks used by Continue. Invalid ages and blank fields cannot be submitted. */
@@ -163,15 +183,16 @@ export function validateStep(step: number, form: PlanFormState): FieldError | nu
     }
   }
   if (step === 3) {
+    const age = readNumber(form.currentAge, "currentAge", "current age");
+    const retirementAccount = !isFieldError(age) && showsRetirementAccount(age);
     const fields: [keyof PlanFormState, string][] = [
       ["oa", "Ordinary Account"],
-      ["sa", "Special Account"],
-      ["ra", "Retirement Account"],
+      retirementAccount ? ["ra", "Retirement Account"] : ["sa", "Special Account"],
       ["ma", "MediSave"],
       ["payoutAge", "CPF LIFE payout age"],
     ];
     for (const [key, label] of fields) {
-      const value = readNumber(String(form[key]), key, label);
+      const value = key === "payoutAge" ? readNumber(String(form[key]), key, label) : readCpfBalance(String(form[key]), key, label);
       if (isFieldError(value)) return value;
     }
   }
@@ -244,21 +265,19 @@ export function parsePlanForm(
   const hasLoan = form.loanAnswer === "yes" ? true : form.loanAnswer === "no" ? false : form.hasLoan;
   const childForms = form.childrenAnswer === "no" ? [] : form.children;
 
-  const oa = required(form.oa, "oa", "Ordinary Account");
+  const oa = readCpfBalance(form.oa, "oa", "Ordinary Account");
   if (typeof oa !== "number") return { ok: false, error: oa };
-  const sa = required(form.sa, "sa", "Special Account");
-  if (typeof sa !== "number") return { ok: false, error: sa };
-  const ra = required(form.ra, "ra", "Retirement Account");
-  if (typeof ra !== "number") return { ok: false, error: ra };
-  const ma = required(form.ma, "ma", "MediSave");
+  const ma = readCpfBalance(form.ma, "ma", "MediSave");
   if (typeof ma !== "number") return { ok: false, error: ma };
   const payoutAge = required(form.payoutAge, "payoutAge", "CPF LIFE payout age");
   if (typeof payoutAge !== "number") return { ok: false, error: payoutAge };
-  // All zeros are the old No path: balances are valid, and the projection stays off.
-  const includeCpf = oa !== 0 || sa !== 0 || ra !== 0 || ma !== 0;
-  const cpf: PlanInput["cpf"] = includeCpf
-    ? { oa, sa, ra, ma, payoutAge }
-    : { oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 };
+  const retirementAccount = showsRetirementAccount(currentAge);
+  const sa = retirementAccount ? 0 : readCpfBalance(form.sa, "sa", "Special Account");
+  if (typeof sa !== "number") return { ok: false, error: sa };
+  const ra = retirementAccount ? readCpfBalance(form.ra, "ra", "Retirement Account") : 0;
+  if (typeof ra !== "number") return { ok: false, error: ra };
+  const includeCpf = true;
+  const cpf: PlanInput["cpf"] = { oa, sa, ra, ma, payoutAge };
 
   let loan: PlanInput["loan"] = null;
   if (hasLoan) {

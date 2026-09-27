@@ -63,7 +63,7 @@ export interface EducationCompletedTracking {
 
 /**
  * Step Completed props. Housing and education also record the Yes or No answer.
- * CPF is a balance form, so it records the step name only.
+ * CPF records whether any balance entered is above zero, and not the amount.
  * A Yes on education adds one list per child, in child order. A No carries only step and answer.
  * No amounts.
  */
@@ -71,9 +71,11 @@ export function stepCompletedProps(
   step: StepName,
   answer?: "yes" | "no",
   education?: EducationCompletedTracking,
+  enteredCpfBalances?: "yes" | "no",
 ): Record<string, AnalyticsProp> {
   const props: Record<string, AnalyticsProp> = { step };
   if (OPTIONAL_STEPS.has(step) && answer) props.answer = answer;
+  if (step === "CPF" && enteredCpfBalances) props.entered_cpf_balances = enteredCpfBalances;
   if (step === "education" && answer === "yes" && education) {
     props.children_count = education.children_count;
     props.education_choice = education.education_choice;
@@ -88,8 +90,8 @@ export function verdictAnalyticsProps(input: {
   gap: number;
   retirementAge: number;
   hasHousingLoan: boolean;
-  /** True when the calculation includes CPF balances. All-zero balances are false. */
-  hasCpf: boolean;
+  /** Yes when any CPF balance entered on the step is above zero. */
+  enteredCpfBalances: "yes" | "no";
   hasChildren: boolean;
   reliesOnEstimate: boolean;
   /** True only for the first verdict of this browser session. */
@@ -102,7 +104,7 @@ export function verdictAnalyticsProps(input: {
     gap_band: gapBand(input.gap),
     retirement_age_band: retirementAgeBand(input.retirementAge),
     has_housing_loan: input.hasHousingLoan,
-    has_cpf: input.hasCpf,
+    entered_cpf_balances: input.enteredCpfBalances,
     has_children: input.hasChildren,
     relies_on_estimate: input.reliesOnEstimate,
     is_first_verdict: input.isFirstVerdict,

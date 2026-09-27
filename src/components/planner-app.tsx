@@ -44,8 +44,10 @@ import {
 import {
   createChildForm,
   DEFAULT_PLAN_FORM,
+  enteredCpfBalances,
   parseDecimal,
   parsePlanForm,
+  showsRetirementAccount,
   validateStep,
   type FieldError,
   type OptionalAnswer,
@@ -80,8 +82,14 @@ const FIELD_IDS: Record<string, string> = {
   addChild: "add-child",
 };
 
-export function PlannerApp({ initialStep = 0 }: { initialStep?: number } = {}) {
-  const [form, setForm] = useState<PlanFormState>(DEFAULT_PLAN_FORM);
+export function PlannerApp({
+  initialStep = 0,
+  initialForm = DEFAULT_PLAN_FORM,
+}: {
+  initialStep?: number;
+  initialForm?: PlanFormState;
+} = {}) {
+  const [form, setForm] = useState<PlanFormState>(initialForm);
   const [step, setStep] = useState(initialStep);
   const [error, setError] = useState<FieldError | null>(null);
   const started = useRef(false);
@@ -133,7 +141,11 @@ export function PlannerApp({ initialStep = 0 }: { initialStep?: number } = {}) {
             gap: parsed.result.gap,
             retirementAge: parsed.input.retirementAge,
             hasHousingLoan: parsed.input.loan !== null,
-            hasCpf: parsed.input.includeCpf,
+            enteredCpfBalances: [parsed.input.cpf.oa, parsed.input.cpf.sa, parsed.input.cpf.ra, parsed.input.cpf.ma].some(
+              (balance) => balance > 0,
+            )
+              ? "yes"
+              : "no",
             hasChildren: parsed.input.children.length > 0,
             reliesOnEstimate: parsed.result.reliesOnEstimate,
             isFirstVerdict: false,
@@ -216,7 +228,9 @@ export function PlannerApp({ initialStep = 0 }: { initialStep?: number } = {}) {
         "Step Completed",
         stepName === "education"
           ? stepCompletedProps(stepName, "yes", educationStepAnalytics(form.children))
-          : stepCompletedProps(stepName, stepName === "housing loan" ? "yes" : undefined),
+          : stepName === "CPF"
+            ? stepCompletedProps(stepName, undefined, undefined, enteredCpfBalances(form))
+            : stepCompletedProps(stepName, stepName === "housing loan" ? "yes" : undefined),
       );
     }
     setStep((current) => current + 1);
@@ -379,17 +393,18 @@ export function PlannerApp({ initialStep = 0 }: { initialStep?: number } = {}) {
           {step === 3 ? (
             <section className="flex flex-col gap-4">
               <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
-                CPF balances
+                Your CPF balances today
               </h2>
+              <NumberField id="oa" label="Ordinary Account (OA)" hint={`Savings that can pay a home loan. This plan uses the ${CPF_INTEREST.ordinaryAccount.year} floor rate of ${formatPercent(CPF_INTEREST.ordinaryAccount.value)}. Leave blank for S$0.`} value={form.oa} onChange={(value) => update({ oa: value })} prefix="S$" placeholder="0" error={fieldError("oa")} />
+              {ageToday !== null && showsRetirementAccount(ageToday) ? (
+                <NumberField id="ra" label="Retirement Account (RA)" hint="Usually what CPF LIFE is estimated from after 55. Leave blank for S$0." value={form.ra} onChange={(value) => update({ ra: value })} prefix="S$" placeholder="0" error={fieldError("ra")} />
+              ) : (
+                <NumberField id="sa" label="Special Account (SA)" hint="Closed at 55. Moved into the Retirement Account up to the Full Retirement Sum. Anything above that goes back to the OA. Leave blank for S$0." value={form.sa} onChange={(value) => update({ sa: value })} prefix="S$" placeholder="0" error={fieldError("sa")} />
+              )}
+              <NumberField id="ma" label="MediSave (MA)" hint={`Kept for healthcare. The ${BASIC_HEALTHCARE_SUM.year} Basic Healthcare Sum is ${formatMoney(BASIC_HEALTHCARE_SUM.value)}. It is not spent on living costs here. Leave blank for S$0.`} value={form.ma} onChange={(value) => update({ ma: value })} prefix="S$" placeholder="0" error={fieldError("ma")} />
               <p className="text-sm leading-6 text-muted">
-                SGFinDex is not available to this app. It is reached through participating banks and government services
-                with Singpass, and there is no public API for an independent calculator. Enter the balances yourself.
-                Use 0 if an account is empty. Salary still has the employee CPF contribution taken out.
+                Your balances are in the CPF app or at cpf.gov.sg after you log in with Singpass.
               </p>
-              <NumberField id="oa" label="Ordinary Account (OA)" hint={`Savings that can pay a home loan. This plan uses the ${CPF_INTEREST.ordinaryAccount.year} floor rate of ${formatPercent(CPF_INTEREST.ordinaryAccount.value)}.`} value={form.oa} onChange={(value) => update({ oa: value })} prefix="S$" error={fieldError("oa")} />
-              <NumberField id="sa" label="Special Account (SA)" hint="Closed at 55. Moved into the Retirement Account up to the Full Retirement Sum. Anything above that goes back to the OA." value={form.sa} onChange={(value) => update({ sa: value })} prefix="S$" error={fieldError("sa")} />
-              <NumberField id="ra" label="Retirement Account (RA)" hint="Usually 0 before 55. This is what CPF LIFE is estimated from." value={form.ra} onChange={(value) => update({ ra: value })} prefix="S$" error={fieldError("ra")} />
-              <NumberField id="ma" label="MediSave (MA)" hint={`Kept for healthcare. The ${BASIC_HEALTHCARE_SUM.year} Basic Healthcare Sum is ${formatMoney(BASIC_HEALTHCARE_SUM.value)}. It is not spent on living costs here.`} value={form.ma} onChange={(value) => update({ ma: value })} prefix="S$" error={fieldError("ma")} />
               <NumberField id="payout-age" label="CPF LIFE payout age" hint={`From ${CPF_LIFE_DEFERRAL.earliestAge} to ${CPF_LIFE_DEFERRAL.latestAge}. Later ages use CPF’s “up to ${formatPercent(CPF_LIFE_DEFERRAL.perYear)} a year” deferral as an estimate, capped at ${formatPercent(CPF_LIFE_DEFERRAL.maxIncrease)}.`} value={form.payoutAge} onChange={(value) => update({ payoutAge: value })} suffix="years" error={fieldError("payoutAge")} />
             </section>
           ) : null}

@@ -21,7 +21,7 @@ describe("analytics", () => {
         gap: -220_000,
         retirementAge: 40,
         hasHousingLoan: true,
-        hasCpf: false,
+        enteredCpfBalances: "no",
         hasChildren: false,
         reliesOnEstimate: true,
         isFirstVerdict: true,
@@ -35,7 +35,7 @@ describe("analytics", () => {
       gap_band: "100k-to-500k",
       retirement_age_band: "under-50",
       has_housing_loan: true,
-      has_cpf: false,
+      entered_cpf_balances: "no",
       has_children: false,
       relies_on_estimate: true,
       is_first_verdict: true,
@@ -46,7 +46,7 @@ describe("analytics", () => {
       gap: 0,
       retirementAge: 65,
       hasHousingLoan: false,
-      hasCpf: true,
+      enteredCpfBalances: "yes",
       hasChildren: false,
       reliesOnEstimate: false,
       isFirstVerdict: false,
@@ -54,9 +54,16 @@ describe("analytics", () => {
     }).is_first_verdict).toBe(false);
     expect(stepCompletedProps("retirement age")).toEqual({ step: "retirement age" });
     expect(stepCompletedProps("housing loan", "no")).toEqual({ step: "housing loan", answer: "no" });
-    expect(stepCompletedProps("CPF")).toEqual({ step: "CPF" });
-    expect(stepCompletedProps("CPF", "yes")).toEqual({ step: "CPF" });
+    expect(stepCompletedProps("CPF", undefined, undefined, "no")).toEqual({
+      step: "CPF",
+      entered_cpf_balances: "no",
+    });
+    expect(stepCompletedProps("CPF", "yes", undefined, "yes")).toEqual({
+      step: "CPF",
+      entered_cpf_balances: "yes",
+    });
     expect(stepCompletedProps("CPF", "no")).toEqual({ step: "CPF" });
+    expect(stepCompletedProps("CPF", "yes", undefined, "yes")).not.toHaveProperty("answer");
     expect(stepCompletedProps("education", "no")).toEqual({ step: "education", answer: "no" });
     expect(
       stepCompletedProps("education", "yes", {
@@ -82,7 +89,10 @@ describe("analytics", () => {
     expect(ignoredOnNo).toEqual({ step: "education", answer: "no" });
     expect(JSON.stringify(ignoredOnNo)).not.toMatch(/14300|56200|children_count|education_choice/);
     expect(JSON.stringify(getTrackedEvents())).not.toMatch(/Step Skipped/);
-    expect(JSON.stringify(verdict.props)).not.toMatch(/220000|salary|balance|instalment/i);
+    expect(JSON.stringify(verdict.props).replaceAll("entered_cpf_balances", "")).not.toMatch(
+      /220000|salary|balance|instalment/i,
+    );
+    expect(verdict.props).not.toHaveProperty("has_cpf");
     expect(verdict.props.relies_on_estimate).toBe(true);
     expect(getTrackedEvents().some((event) => event.event === "Estimate Info Opened")).toBe(false);
   });
