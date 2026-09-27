@@ -31,7 +31,7 @@ The form is five steps, then a verdict.
 | Step | What it collects |
 | --- | --- |
 | Retirement age | Current age, the age you want to stop work, and the age the plan should last until. Retirement can be 40 or 70. It only has to be after today and before the planning age. |
-| Income and expenses | Gross monthly income, optional income growth, monthly expenses now, retirement spending in today’s prices, cash savings, extra monthly saving, expected return, and inflation. Saving capacity is income minus employee CPF, expenses, and a cash loan, plus any extra you add. |
+| Income and expenses | Gross monthly income, optional income growth, monthly expenses now, retirement spending in today’s prices, cash savings, other income you'd save each month, expected return, and inflation. Saving capacity is income minus employee CPF, expenses, and a cash loan, plus that other income. |
 | Housing loan | Optional. Outstanding balance, your interest rate, years left, and whether you pay from the Ordinary Account or from cash. Leave the instalment blank to use the monthly-rest formula, or type the instalment you actually pay. |
 | CPF | Optional. Ordinary Account, Special Account, Retirement Account, and MediSave, plus the age you want CPF LIFE to start (65 to 70). |
 | Education | Optional. One or more children. Local university, an overseas preset, or your own yearly cost and years. |
@@ -46,11 +46,11 @@ The verdict is one sentence: you can retire at that age, or you cannot.
 - **Projected cash.** Cash savings on that day, including Ordinary Account money moved into cash when that happens at retirement.
 - **Gap.** Projected cash minus the nest egg. Positive is a surplus. Negative is a shortfall.
 - **CPF LIFE payout.** A flat monthly estimate from the payout age, when CPF is included.
-- **Left to save today.** This month’s income minus employee CPF, spending, and a cash loan instalment, plus any extra saving.
+- **Saved each month now.** This month’s income minus employee CPF, spending, and a cash loan instalment, plus other income you'd save. When that is negative the card says “Short each month now” and shows the amount without a minus sign.
 - **If the plan fails.** The earliest later age that works, the extra monthly saving that closes the gap, or the retirement spending cut that does. Also the age cash runs out.
-- **Chart.** Cash balance through the working years and retirement.
+- **Chart.** Cash balance through the working years and retirement, in Today's money or Future money. A marker shows Ordinary Account savings moved into cash.
 
-Any figure that depends on an assumption beyond a published table is tagged **Estimate**. The verdict says so in words when the result uses one.
+Any figure that depends on an assumption beyond a published table is tagged **Estimate**. The tag is a label, not a button, and it does not open a note. The verdict says so in words when the result uses one.
 
 ## Formulas
 
@@ -134,7 +134,7 @@ Cohorts turning 55 after 2027 are an assumption: the 2027 Basic Retirement Sum g
 
 Additional wages are not modelled. The annual ceiling of S$102,000 would cap ordinary wages plus bonuses. This plan only caps the monthly ordinary wage. Selling a home bought with CPF requires a refund of principal plus accrued interest. That interest rate was not confirmed, so the plan does not charge it and shows an estimate tag. The loan rate you type is used for the monthly-rest instalment only.
 
-Ordinary Account savings move into spendable cash at retirement, or at 55 if you retire earlier, unless an Ordinary Account loan still has payments after retirement. In that case the account stays put to keep paying the loan.
+Ordinary Account savings move into spendable cash at retirement, or at 55 if you retire earlier. The amount includes Ordinary Account interest already earned that year and not yet credited in December. If an Ordinary Account loan still has payments after retirement, the account keeps paying the loan, and whatever is left moves to cash in the month after the loan ends. After that move, only later Ordinary Account base interest is paid to cash. Extra interest goes to the Special Account before 55 and to the Retirement Account from 55, and it is left out entirely once CPF LIFE payouts have started, so that account stays at zero and the extra never becomes spendable cash. The balance chart shows Today's money by default (each future balance divided by inflation since today) and can switch to Future money.
 
 CPF LIFE that starts before retirement, which is what happens if you keep working past the payout age, is added to cash each month. There is no upper limit on the retirement age itself. A member who is already 65 or older has no age-65 snapshot in this plan, so the payout is estimated from the Retirement Account they enter, and the “up to 7%” deferral is applied only for years still ahead. The CPF monthly payout estimator is the logged-in tool for a personal quote. CPF points members under 55 to the Retirement Payout Planner instead. This app projects the balance forward and labels the result an estimate. MoneyOwl’s retirement planner asks the same kinds of questions, salary and saving, cash, and CPF balances, then shows whether the plan works. This screen uses its own layout and its own maths.
 
@@ -167,7 +167,7 @@ A real integration would need a government-approved business app on the Singpass
 
 ## Analytics
 
-`track(event, props)` in `src/lib/analytics/track.ts` records events in memory only. No SDK is installed. Amplitude can subscribe to the same helper later. The events are Landing Viewed, Calculator Started, Step Viewed, Step Completed, Input Validation Error, Verdict Viewed, Gap Suggestion Applied, Inputs Adjusted After Verdict, and Estimate Info Opened. Step names are retirement age, income & expenses, housing loan, CPF, and education. Step Completed on housing, CPF, and education includes `answer` (`yes` or `no`). Verdict Viewed includes `relies_on_estimate`, `is_first_verdict` (true only for the first verdict in the session), the outcome, a gap band, a retirement-age band, and flags for a housing loan, CPF balances, and children. Leaving CPF balances out still deducts the employee contribution from salary; `has_cpf` is false in that case. It is recorded again when a later edit changes the gap band or the retirement-age band. Inputs Adjusted After Verdict fires once for each verdict the person has seen, on the first edit after that verdict, and not on every keystroke. Estimate Info Opened includes the figure name only, such as “Retirement sum” or “Escalating plan”. Exact salaries, balances, and loan amounts are not recorded.
+`track(event, props)` in `src/lib/analytics/track.ts` records events in memory only. No SDK is installed. Amplitude can subscribe to the same helper later. The events are Landing Viewed, Calculator Started, Step Viewed, Step Completed, Input Validation Error, Verdict Viewed, Gap Suggestion Previewed, Gap Suggestion Applied, and Inputs Adjusted After Verdict. Step names are retirement age, income & expenses, housing loan, CPF, and education. Step Completed on housing, CPF, and education includes `answer` (`yes` or `no`). Verdict Viewed includes `relies_on_estimate`, `is_first_verdict` (true only for the first verdict in the session), the outcome, a gap band, a retirement-age band, and flags for a housing loan, CPF balances, and children. Leaving CPF balances out still deducts the employee contribution from salary; `has_cpf` is false in that case. It is recorded again when a later edit changes the gap band or the retirement-age band. Inputs Adjusted After Verdict fires once for each verdict the person has seen, on the first edit after that verdict, and not on every keystroke. Gap Suggestion Previewed fires when a “What would fix it” suggestion is opened, and Gap Suggestion Applied fires only when that preview is applied. Both send a type and no amounts. Exact salaries, balances, and loan amounts are not recorded.
 
 ## Assumptions
 

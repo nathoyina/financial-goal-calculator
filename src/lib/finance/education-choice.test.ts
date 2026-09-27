@@ -14,7 +14,6 @@ import {
   draftEducationFigure,
   educationStepAnalytics,
   educationTotalCopy,
-  presetEstimateExplanation,
   pressEducationChoice,
   type EducationChildState,
 } from "./education-choice";
@@ -129,22 +128,6 @@ describe("education cost presets", () => {
     expect(custom.presetEdited).toBe(false);
     expect(custom.yearlyCostToday).toBe("14300");
     expect(activePresetId(custom)).toBeNull();
-  });
-
-  it("gives each preset its own estimate note", () => {
-    expect(presetEstimateExplanation("local")).toBe(
-      "Tuition is the 2026 subsidised fee for Singapore citizens. Living costs are NUS's estimate for a student living at home, so hostel fees aren't included.",
-    );
-    expect(presetEstimateExplanation("uk")).toBe(
-      "Tuition is the UCAS average for international students. Living costs are the UK student visa minimum outside London. Flights and insurance aren't included.",
-    );
-    expect(presetEstimateExplanation("australia")).toBe(
-      "Living costs are the Australian student visa minimum. Tuition is an assumption. Flights and insurance aren't included.",
-    );
-    const usNote =
-      "College Board 2025-26 prices before financial aid. Books, flights and insurance aren't included.";
-    expect(presetEstimateExplanation("us-public")).toBe(usNote);
-    expect(presetEstimateExplanation("us-private")).toBe(usNote);
   });
 
   it("states the total in today’s prices and the start year", () => {

@@ -5,6 +5,7 @@ import { EstimateTag } from "@/components/estimate-tag";
 import { BalanceChart } from "@/components/balance-chart";
 import { ChildEducationCard } from "@/components/child-education";
 import { NumberField } from "@/components/number-field";
+import { SuggestionChoices, VerdictWithPreview } from "@/components/suggestion-preview";
 import {
   STEP_NAMES,
   stepCompletedProps,
@@ -24,6 +25,8 @@ import { formatAge, formatMoney, formatPercent } from "@/lib/finance/format";
 import {
   cpfLifeDollarYear,
   cpfLifeInTodaysMoney,
+  monthlySavingCard,
+  savingsKeepGrowingSentence,
   spendingExceedsTakeHome,
   takeHomeExcessSentence,
   yearsUntilRetirementLine,
@@ -31,6 +34,13 @@ import {
 import { educationStepAnalytics } from "@/lib/finance/education-choice";
 import { pressOptionalButton, showsContinue } from "@/lib/finance/optional-step";
 import { estimateNotice } from "@/lib/finance/plan";
+import {
+  applySuggestion,
+  dismissSuggestion,
+  tapSuggestion,
+  type GapSuggestionType,
+  type SuggestionPreview,
+} from "@/lib/finance/suggestion-preview";
 import {
   createChildForm,
   DEFAULT_PLAN_FORM,
@@ -317,7 +327,7 @@ export function PlannerApp() {
               ) : null}
               <NumberField id="expenses-later" label="Monthly spending in retirement" hint="Leave out your home loan. What you want to spend each month after you stop work, in today’s prices." value={form.monthlyRetirementSpendingToday} onChange={(value) => update({ monthlyRetirementSpendingToday: value })} prefix="S$" error={fieldError("monthlyRetirementSpendingToday")} />
               <NumberField id="cash" label="Cash savings" hint="Money outside CPF that you can invest and later spend." value={form.cashSavings} onChange={(value) => update({ cashSavings: value })} prefix="S$" error={fieldError("cashSavings")} />
-              <NumberField id="extra" label="Extra monthly saving" hint="On top of whatever income minus spending leaves. Start at 0." value={form.extraMonthlySaving} onChange={(value) => update({ extraMonthlySaving: value })} prefix="S$" error={fieldError("extraMonthlySaving")} />
+              <NumberField id="extra" label="Other income you'd save each month" hint="Side income, rental or bonuses. Your salary savings are already counted." value={form.extraMonthlySaving} onChange={(value) => update({ extraMonthlySaving: value })} prefix="S$" error={fieldError("extraMonthlySaving")} />
               <NumberField id="return" label="Expected annual return" hint="Nominal return on cash savings, before inflation." value={form.annualReturn} onChange={(value) => update({ annualReturn: value })} suffix="%" error={fieldError("annualReturn")} />
               <NumberField id="inflation" label="Expected inflation" hint="How fast prices, and your spending, rise each year." value={form.annualInflation} onChange={(value) => update({ annualInflation: value })} suffix="%" error={fieldError("annualInflation")} />
               {leftBeforeCpf !== null ? (
@@ -435,7 +445,6 @@ export function PlannerApp() {
                     })
                   }
                   onRemove={() => update({ children: form.children.filter((item) => item.id !== child.id) })}
-                  onOpenEstimate={(figure) => track("Estimate Info Opened", { figure })}
                 />
               ))}
               <button
@@ -464,7 +473,6 @@ export function PlannerApp() {
               parsed={parsed}
               form={form}
               onApply={update}
-              onOpenEstimate={(figure) => track("Estimate Info Opened", { figure })}
             />
           ) : null}
 
@@ -498,13 +506,28 @@ function Verdict({
   form,
   parsed,
   onApply,
-  onOpenEstimate,
 }: {
   form: PlanFormState;
   parsed: ReturnType<typeof parsePlanForm> | null;
   onApply: (patch: Partial<PlanFormState>, source?: "user" | "suggestion") => void;
-  onOpenEstimate: (figure: string) => void;
 }) {
+  const [preview, setPreview] = useState<SuggestionPreview | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  const suggestionButtons = useRef<Partial<Record<GapSuggestionType, HTMLButtonElement | null>>>({});
+  const returnFocus = useRef<GapSuggestionType | null>(null);
+
+  useEffect(() => {
+    if (preview) {
+      previewRef.current?.scrollIntoView({ block: "nearest" });
+      previewRef.current?.focus();
+      return;
+    }
+    const type = returnFocus.current;
+    if (!type) return;
+    returnFocus.current = null;
+    suggestionButtons.current[type]?.focus();
+  }, [preview]);
+
   if (!parsed || !parsed.ok) {
     return (
       <section className="flex flex-col gap-3">
@@ -529,6 +552,21 @@ function Verdict({
     annualInflation: input.annualInflation,
     monthlyPayout: result.cpfLifeMonthly,
   });
+  const savingNow = monthlySavingCard(result.monthlySavingToday);
+  const growthSentence = savingsKeepGrowingSentence({
+    currentAge: input.currentAge,
+    retirementAge: input.retirementAge,
+    lifeExpectancy: input.lifeExpectancy,
+    monthlyRetirementSpendingToday: input.monthlyRetirementSpendingToday,
+    annualInflation: input.annualInflation,
+    annualReturn: input.annualReturn,
+    cpfLifeMonthly: result.cpfLifeMonthly,
+    payoutAge: input.cpf.payoutAge,
+    includeCpf: input.includeCpf,
+    cashAtRetirement: result.projectedCashAtRetirement,
+    endingBalance: result.endingBalance,
+    canRetire: result.canRetire,
+  });
   const sentence = result.canRetire
     ? `Yes. You can retire at ${formatAge(input.retirementAge)}.`
     : `No. You cannot retire at ${formatAge(input.retirementAge)} on this plan.`;
@@ -540,8 +578,37 @@ function Verdict({
           : `Savings run out at age ${formatAge(result.moneyRunsOutAge)}.`
       }`;
 
+  const previewSuggestion = (type: GapSuggestionType) => {
+    const step = tapSuggestion({ form, preview }, type);
+    if (step.focus === "suggestion") returnFocus.current = type;
+    else returnFocus.current = null;
+    if (step.event) track(step.event.name, { type: step.event.type });
+    setPreview(step.view.preview);
+  };
+
+  const dismissPreview = () => {
+    if (!preview) return;
+    returnFocus.current = preview.type;
+    setPreview(dismissSuggestion({ form, preview }).view.preview);
+  };
+
+  const applyPreview = () => {
+    if (!preview) return;
+    const step = applySuggestion({ form, preview });
+    returnFocus.current = null;
+    if (step.event) track(step.event.name, { type: step.event.type });
+    setPreview(null);
+    onApply(preview.patch, "suggestion");
+  };
+
   return (
     <section className="flex flex-col gap-5" aria-live="polite">
+      <VerdictWithPreview
+        preview={preview}
+        panelRef={previewRef}
+        onApply={applyPreview}
+        onDismiss={dismissPreview}
+        verdict={
       <div className="glass p-5 sm:p-8">
         <p className={result.canRetire ? "status-chip status-on-track" : "status-chip status-shortfall"}>
           {result.canRetire ? <CheckIcon /> : <ShortfallIcon />}
@@ -552,8 +619,11 @@ function Verdict({
           {sentence}
         </h2>
         <p className="mt-3 text-base leading-7 text-white">{detail}</p>
+        {growthSentence ? <p className="mt-3 text-base leading-7 text-white">{growthSentence}</p> : null}
         {notice ? <p className="mt-3 text-sm leading-6 text-muted">{notice}</p> : null}
       </div>
+        }
+      />
 
       <dl className="grid gap-3 sm:grid-cols-2">
         <div className="glass p-5">
@@ -574,13 +644,7 @@ function Verdict({
         <div className="glass p-5">
           <dt className="flex flex-wrap items-center gap-2 text-sm text-muted">
             CPF LIFE payout
-            {input.includeCpf ? (
-              <EstimateTag
-                id="cpf-life-payout"
-                explanation={result.estimates.find((note) => note.id === "cpf-life-payout")?.explanation ?? "Estimated payout."}
-                onOpen={() => onOpenEstimate("CPF LIFE payout")}
-              />
-            ) : null}
+            {input.includeCpf ? <EstimateTag /> : null}
           </dt>
           <dd className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
             {input.includeCpf ? `${formatMoney(result.cpfLifeMonthly)} / mo` : "Not included"}
@@ -597,49 +661,38 @@ function Verdict({
           </p>
         </div>
         <div className="glass p-5">
-          <dt className="text-sm text-muted">Left to save today</dt>
-          <dd className="mt-1 text-3xl font-bold tabular-nums tracking-tight">{formatMoney(result.monthlySavingToday)}</dd>
-          <p className="mt-2 text-sm leading-5 text-muted">Income minus CPF, spending, and a cash loan instalment, plus any extra you entered.</p>
+          <dt className="text-sm text-muted">{savingNow.label}</dt>
+          <dd className={`mt-1 text-3xl font-bold tabular-nums tracking-tight ${savingNow.short ? "text-yellow" : "text-white"}`}>
+            {formatMoney(savingNow.displayAmount)}
+          </dd>
+          <p className="mt-2 text-sm leading-5 text-muted">{savingNow.explanation}</p>
         </div>
       </dl>
 
       {!result.canRetire ? (
         <div className="flex flex-col gap-3">
           <h3 className="text-lg font-bold">What would fix it</h3>
-          {result.earliestRetirementAge !== null ? (
-            <button type="button" className="pill pill-shout text-left" onClick={() => { track("Gap Suggestion Applied", { type: "earliest-age" }); onApply({ retirementAge: String(result.earliestRetirementAge) }, "suggestion"); }}>
-              Retire at {result.earliestRetirementAge} instead
-            </button>
-          ) : (
-            <p className="text-sm leading-6 text-muted">No later age before the planning age makes this spending last.</p>
-          )}
-          {result.extraMonthlySaving !== null ? (
-            <button type="button" className="pill pill-ghost text-left" onClick={() => { track("Gap Suggestion Applied", { type: "extra-saving" }); const currentExtra = parseDecimal(form.extraMonthlySaving) ?? input.extraMonthlySaving; onApply({ extraMonthlySaving: String(Math.ceil(currentExtra + result.extraMonthlySaving!)) }, "suggestion"); }}>
-              Save {formatMoney(result.extraMonthlySaving)} more each month
-            </button>
-          ) : null}
-          {result.spendingCutNow !== null && Math.round(result.spendingCutNow) >= 1 ? (
-            <button type="button" className="pill pill-ghost text-left" onClick={() => { track("Gap Suggestion Applied", { type: "spend-less-now" }); onApply({ monthlyExpensesNow: String(Math.max(0, Math.floor(input.monthlyExpensesNow - result.spendingCutNow!))) }, "suggestion"); }}>
-              Spend {formatMoney(result.spendingCutNow)} less each month now
-            </button>
-          ) : null}
-          {result.spendingCutToday !== null ? (
-            <button type="button" className="pill pill-ghost text-left" onClick={() => { track("Gap Suggestion Applied", { type: "spending-cut" }); onApply({ monthlyRetirementSpendingToday: String(Math.max(0, Math.floor(input.monthlyRetirementSpendingToday - result.spendingCutToday!))) }, "suggestion"); }}>
-              Spend {formatMoney(result.spendingCutToday)} less each month in retirement
-            </button>
-          ) : null}
+          <SuggestionChoices
+            result={result}
+            openType={preview?.type ?? null}
+            onPreview={previewSuggestion}
+            registerButton={(type, node) => {
+              suggestionButtons.current[type] = node;
+            }}
+          />
         </div>
       ) : null}
 
       <div>
         <h3 className="text-lg font-bold">Balance over time</h3>
-        <p className="mt-1 text-sm leading-5 text-muted">The solid line is the working years. The dashed line is retirement. Cash only, after any OA moved in at 55 or retirement.</p>
+        <p className="mt-1 text-sm leading-5 text-muted">The solid line is the working years. The dashed line is retirement. Cash only. A yellow marker shows Ordinary Account savings moved into cash.</p>
         <BalanceChart
           series={result.series}
           retirementAge={input.retirementAge}
           lifeExpectancy={input.lifeExpectancy}
           moneyRunsOutAge={result.moneyRunsOutAge}
           currency="SGD"
+          annualInflation={input.annualInflation}
         />
       </div>
 
@@ -649,7 +702,7 @@ function Verdict({
           <div key={note.id} className="flex flex-col items-start gap-1">
             <div className="flex flex-wrap items-center gap-3">
               <p className="text-sm font-medium text-white">{note.title}</p>
-              <EstimateTag id={`${note.id}-assumption`} explanation={note.explanation} onOpen={() => onOpenEstimate(note.title)} />
+              <EstimateTag />
             </div>
           </div>
         ))}
@@ -657,7 +710,7 @@ function Verdict({
           <li>Contributions use the published citizen rates for each calendar year, on wages above {formatMoney(CPF_WAGE.fullRateAbove.value)}, capped at the {formatMoney(CPF_WAGE.ordinaryCeiling.value)} ordinary wage ceiling from {PLANNING_YEAR}. Senior-worker rates use the published 2027 table from January 2027, then stay on that table. Additional wages are not modelled. The annual wage ceiling is {formatMoney(CPF_WAGE.annualCeiling.value)}.</li>
           <li>The Full Retirement Sum for the year you turn 55, not a voluntary top-up to the Enhanced Retirement Sum, is set aside at 55. The Enhanced Retirement Sum is the {ENHANCED_RETIREMENT_SUM.year} top-up limit of {formatMoney(ENHANCED_RETIREMENT_SUM.value)}. It is not four times an earlier cohort’s Basic Retirement Sum.</li>
           <li>Interest is calculated on each month’s balance and added at the end of December. It is not monthly compounding.</li>
-          <li>MediSave is not used for living costs. Ordinary Account savings move into spendable cash at retirement, or at 55 if you retire earlier, unless an OA loan is still running.</li>
+          <li>MediSave is not used for living costs. Ordinary Account savings, including interest already earned that year, move into spendable cash at retirement, or at 55 if you retire earlier. If an OA loan is still running, the leftover moves the month after the loan ends. Later Ordinary Account interest goes to cash, and the Retirement Account stays at zero once CPF LIFE starts.</li>
         </ul>
       </div>
 

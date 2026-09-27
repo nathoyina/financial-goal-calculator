@@ -35,8 +35,11 @@ export interface CpfProjectionInput {
   payoutAge: number;
   /**
    * Month when remaining Ordinary Account savings are moved to cash.
-   * From that month the balance earns no further interest, including the
-   * extra interest that would have gone into the Retirement Account.
+   * The amount includes base Ordinary Account interest already earned that
+   * year and not yet credited. From that month the balance stays at zero.
+   * Later base Ordinary Account interest is returned in postSweepOaCredits.
+   * Extra interest is not withdrawable: it goes to the Special or Retirement
+   * Account until CPF LIFE starts, and is left out after that.
    */
   withdrawOaAtMonth?: number | null;
 }
@@ -55,8 +58,16 @@ export interface CpfProjection {
   fullRetirementSum: number;
   /** True when the payout, a post-2027 retirement sum, or deferred payout factor is an estimate. */
   reliesOnEstimate: boolean;
-  /** Ordinary Account moved to cash. Zero when nothing is withdrawn. */
+  /**
+   * Ordinary Account moved to cash, including base interest earned so far
+   * that year and not yet credited. Zero when nothing is withdrawn.
+   */
   oaWithdrawn: number;
+  /**
+   * Base Ordinary Account interest paid to cash after the sweep, by month.
+   * Zero before the sweep. Extra interest is never included.
+   */
+  postSweepOaCredits: number[];
   /** True when a Basic Healthcare Sum in this projection is not a published figure. */
   bhsEstimated: boolean;
 }
@@ -228,11 +239,14 @@ export function projectCpf(input: CpfProjectionInput): CpfProjection {
   let payoutStartMonth: number | null = null;
   let saw65 = input.currentAge >= 65;
   let oaWithdrawn = 0;
+  let oaSwept = false;
+  const postSweepOaCredits: number[] = [];
   let bhsEstimated = false;
 
   const push = () => balances.push(clone(current));
 
   for (let month = 0; month < input.months; month += 1) {
+    postSweepOaCredits.push(0);
     const age = (startMonths + month) / 12;
     const ageBefore = (startMonths + month - 1) / 12;
     if (month === 0 && age >= 55 && input.currentAge >= 55) {
@@ -266,31 +280,38 @@ export function projectCpf(input: CpfProjectionInput): CpfProjection {
     spillMedisave(current, sums.frs, age, healthcare.cap);
 
     if (input.withdrawOaAtMonth === month) {
-      oaWithdrawn = current.oa;
+      oaWithdrawn = current.oa + accrued.oa;
       current.oa = 0;
+      accrued.oa = 0;
+      oaSwept = true;
     }
 
     accrued.oa += (current.oa * CPF_INTEREST.ordinaryAccount.value) / 12;
     accrued.sa += (current.sa * CPF_INTEREST.specialMedisaveRetirement.value) / 12;
     accrued.ra += (current.ra * CPF_INTEREST.specialMedisaveRetirement.value) / 12;
     accrued.ma += (current.ma * CPF_INTEREST.specialMedisaveRetirement.value) / 12;
-    for (const slice of extraInterestSlices(current, age)) {
-      const monthly = slice.rate / 12;
-      accruedExtraToRetirement += slice.oa * monthly;
-      accrued.sa += slice.sa * monthly;
-      accrued.ra += slice.ra * monthly;
-      accrued.ma += slice.ma * monthly;
+    const payoutAlreadyStarted = payoutStartMonth !== null;
+    if (!payoutAlreadyStarted) {
+      for (const slice of extraInterestSlices(current, age)) {
+        const monthly = slice.rate / 12;
+        accruedExtraToRetirement += slice.oa * monthly;
+        accrued.sa += slice.sa * monthly;
+        accrued.ra += slice.ra * monthly;
+        accrued.ma += slice.ma * monthly;
+      }
     }
 
     const creditNow = isInterestCreditMonth(month);
     if (creditNow) {
-      current.oa += accrued.oa;
+      if (oaSwept) postSweepOaCredits[month] += accrued.oa;
+      else current.oa += accrued.oa;
       current.ma += accrued.ma;
+      const extraForAccounts = payoutAlreadyStarted ? 0 : accruedExtraToRetirement;
       if (age >= 55) {
-        current.ra += accrued.ra + accrued.sa + accruedExtraToRetirement;
+        current.ra += accrued.ra + accrued.sa + extraForAccounts;
         current.sa = 0;
       } else {
-        current.sa += accrued.sa + accruedExtraToRetirement;
+        current.sa += accrued.sa + extraForAccounts;
         current.ra += accrued.ra;
       }
       accrued = emptyBalances();
@@ -347,6 +368,7 @@ export function projectCpf(input: CpfProjectionInput): CpfProjection {
     fullRetirementSum: sums.frs,
     reliesOnEstimate: true,
     oaWithdrawn,
+    postSweepOaCredits,
     bhsEstimated,
   };
 }

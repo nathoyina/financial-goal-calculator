@@ -142,7 +142,7 @@ export function validateStep(step: number, form: PlanFormState): FieldError | nu
       ["monthlyExpensesNow", "monthly expenses"],
       ["monthlyRetirementSpendingToday", "retirement spending"],
       ["cashSavings", "cash savings"],
-      ["extraMonthlySaving", "extra monthly saving"],
+      ["extraMonthlySaving", "other income you'd save"],
       ["annualReturn", "annual return"],
       ["annualInflation", "inflation"],
     ];
@@ -241,7 +241,7 @@ export function parsePlanForm(
   if (typeof annualReturn !== "number") return { ok: false, error: annualReturn };
   const annualInflation = required(form.annualInflation, "annualInflation", "inflation");
   if (typeof annualInflation !== "number") return { ok: false, error: annualInflation };
-  const extraMonthlySaving = required(form.extraMonthlySaving, "extraMonthlySaving", "extra monthly saving");
+  const extraMonthlySaving = required(form.extraMonthlySaving, "extraMonthlySaving", "other income you'd save");
   if (typeof extraMonthlySaving !== "number") return { ok: false, error: extraMonthlySaving };
 
   const includeCpf = form.cpfAnswer === "yes" ? true : form.cpfAnswer === "no" ? false : form.includeCpf;

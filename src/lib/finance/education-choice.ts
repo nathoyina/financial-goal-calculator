@@ -1,12 +1,5 @@
 import { calendarYearAtMonth } from "../cpf/constants";
-import {
-  AUSTRALIA_ESTIMATE_EXPLANATION,
-  EDUCATION_PRESETS,
-  LOCAL_ESTIMATE_EXPLANATION,
-  UK_ESTIMATE_EXPLANATION,
-  US_ESTIMATE_EXPLANATION,
-  type EducationPresetId,
-} from "../education/constants";
+import { EDUCATION_PRESETS, type EducationPresetId } from "../education/constants";
 import { formatMoney } from "./format";
 import { parseDecimal } from "./parse";
 
@@ -144,36 +137,6 @@ export function activePresetId(child: EducationChildState): EducationPresetId | 
   if (child.presetEdited || child.educationChoice === "custom" || child.educationChoice === null) return null;
   if (child.educationChoice === "local") return "local";
   return child.overseasPreset;
-}
-
-export function presetEstimateExplanation(preset: EducationPresetId): string {
-  switch (preset) {
-    case "local":
-      return LOCAL_ESTIMATE_EXPLANATION;
-    case "uk":
-      return UK_ESTIMATE_EXPLANATION;
-    case "australia":
-      return AUSTRALIA_ESTIMATE_EXPLANATION;
-    case "us-public":
-    case "us-private":
-      return US_ESTIMATE_EXPLANATION;
-  }
-}
-
-/** Figure name for Estimate Info Opened. No amounts. */
-export function presetEstimateFigure(preset: EducationPresetId): string {
-  switch (preset) {
-    case "local":
-      return "Local university";
-    case "uk":
-      return "UK university";
-    case "australia":
-      return "Australia university";
-    case "us-public":
-      return "US public university";
-    case "us-private":
-      return "US private university";
-  }
 }
 
 export interface EducationTotalCopy {
