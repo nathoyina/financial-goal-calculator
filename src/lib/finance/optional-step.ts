@@ -1,17 +1,16 @@
 import { type AnalyticsProp, STEP_NAMES, stepCompletedProps } from "../analytics/track";
-import type { OptionalAnswer, PlanFormState } from "./plan-form";
+import { stepAfter, type OptionalAnswer, type PlanFormState } from "./plan-form";
 
 export function optionalAnswer(step: number, form: PlanFormState): OptionalAnswer {
   if (step === 2) return form.loanAnswer;
-  if (step === 3) return form.cpfAnswer;
   if (step === 4) return form.childrenAnswer;
   return null;
 }
 
-/** Age and income always offer Continue. A yes/no step offers it only after Yes. */
+/** Age, income, and CPF balances always offer Continue. A yes/no step offers it only after Yes. */
 export function showsContinue(step: number, form: PlanFormState): boolean {
   if (step < 0 || step > 4) return false;
-  if (step < 2) return true;
+  if (step < 2 || step === 3) return true;
   return optionalAnswer(step, form) === "yes";
 }
 
@@ -85,21 +84,18 @@ export function pressOptionalButton(input: ChoicePress): ChoicePressResult {
  */
 export function chooseOptionalAnswer(step: number, form: PlanFormState, answer: "yes" | "no"): OptionalChoice {
   const stepName = STEP_NAMES[step];
-  if (!stepName || step < 2 || step > 4) return { form, nextStep: null, completed: null };
+  if (!stepName || step < 2 || step > 4 || step === 3) return { form, nextStep: null, completed: null };
 
   const next: PlanFormState = { ...form };
   if (step === 2) {
     next.loanAnswer = answer;
     next.hasLoan = answer === "yes";
-  } else if (step === 3) {
-    next.cpfAnswer = answer;
-    next.includeCpf = answer === "yes";
   } else {
     next.childrenAnswer = answer;
   }
 
   if (answer === "no") {
-    return { form: next, nextStep: step + 1, completed: stepCompletedProps(stepName, "no") };
+    return { form: next, nextStep: stepAfter(step, next), completed: stepCompletedProps(stepName, "no") };
   }
   return { form: next, nextStep: null, completed: null };
 }

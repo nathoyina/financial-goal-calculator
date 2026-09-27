@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CPF_INTEREST, calendarYearAtMonth, isInterestCreditMonth } from "./constants";
+import { CPF_INTEREST, calendarYearAtMonth, isInterestCreditMonth, retirementSumsForCohort, yearTurning55 } from "./constants";
 import {
   closeSpecialAccount,
   estimateStandardPayout,
@@ -100,6 +100,43 @@ describe("CPF projection", () => {
       slices.reduce((sum, slice) => sum + slice.oa * slice.rate, 0);
     expect(oaExtra(withdrawn)).toBe(0);
     expect(oaExtra(stillThere)).toBeCloseTo(20_000 * 0.02, 6);
+  });
+
+  it("does not move Ordinary Account into the Retirement Account when the member is already 55 or older", () => {
+    const oa = 80_000;
+    const ra = 50_000;
+    const frs = retirementSumsForCohort(yearTurning55(60)).frs;
+    expect(ra).toBeLessThan(frs);
+    const already55 = projectCpf({
+      currentAge: 60,
+      months: 1,
+      initial: { oa, sa: 0, ra, ma: 0 },
+      wageAtMonth: () => 0,
+      payoutAge: 65,
+    });
+    expect(already55.balances[0].oa).toBeCloseTo(oa, 4);
+    expect(already55.balances[0].ra).toBeCloseTo(ra, 4);
+
+    const turning = projectCpf({
+      currentAge: 54,
+      months: 14,
+      initial: { oa: 100_000, sa: 10_000, ra: 0, ma: 0 },
+      wageAtMonth: () => 0,
+      payoutAge: 65,
+    });
+    const startMonths = Math.round(54 * 12);
+    const turned = turning.balances.findIndex((_, month) => {
+      const age = (startMonths + month) / 12;
+      const before = (startMonths + month - 1) / 12;
+      return month > 0 && before < 55 && age >= 55;
+    });
+    expect(turned).toBeGreaterThan(0);
+    const prior = turning.balances[turned - 1];
+    const after = turning.balances[turned];
+    expect(after.ra).toBeGreaterThan(prior.ra);
+    expect(after.oa).toBeLessThan(prior.oa);
+    expect(after.sa).toBe(0);
+    expect(after.oa + after.ra).toBeCloseTo(prior.oa + prior.sa + prior.ra, 4);
   });
 
   it("closes the Special Account at 55 into the RA up to the FRS, with the excess to the OA", () => {

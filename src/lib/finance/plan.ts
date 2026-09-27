@@ -224,7 +224,8 @@ function simulate(input: PlanInput): Simulation {
     : [];
 
   const loanEndsMonth = schedule.length;
-  const oaLoanPastRetirement = input.loan?.paidFrom === "oa" && loanEndsMonth > retirementMonth;
+  const loanPaidFrom = input.loan ? (input.includeCpf ? input.loan.paidFrom : "cash") : null;
+  const oaLoanPastRetirement = loanPaidFrom === "oa" && loanEndsMonth > retirementMonth;
   const age55Month = Math.max(0, Math.round((55 - input.currentAge) * 12));
   // A loan paid from the Ordinary Account keeps that account until the month
   // after the last instalment. Anything left then moves to cash.
@@ -251,7 +252,7 @@ function simulate(input: PlanInput): Simulation {
           ma: input.cpf.ma,
         },
         wageAtMonth,
-        oaPaymentAtMonth: (month) => (input.loan?.paidFrom === "oa" ? (schedule[month]?.payment ?? 0) : 0),
+        oaPaymentAtMonth: (month) => (loanPaidFrom === "oa" ? (schedule[month]?.payment ?? 0) : 0),
         payoutAge: input.cpf.payoutAge,
         withdrawOaAtMonth: sweepMonth,
       })
@@ -311,7 +312,7 @@ function simulate(input: PlanInput): Simulation {
       });
     }
   }
-  if (input.includeCpf || input.loan) {
+  if (input.includeCpf) {
     estimates.push({
       id: "housing-accrued-interest",
       title: "Housing accrued interest",
@@ -336,7 +337,7 @@ function simulate(input: PlanInput): Simulation {
       input.monthlyRetirementSpendingToday * inflated -
       cpfLife +
       (education.get(month) ?? 0) +
-      (input.loan?.paidFrom === "cash" ? (schedule[month]?.payment ?? 0) : 0) +
+      (loanPaidFrom === "cash" ? (schedule[month]?.payment ?? 0) : 0) +
       (cpf?.oaShortfall[month] ?? 0);
     // A sweep or interest credit on the retirement month is already inside projected cash.
     // A later one reduces the nest egg instead.
@@ -356,12 +357,14 @@ function simulate(input: PlanInput): Simulation {
     const working = month < retirementMonth;
     const inflated = (1 + input.annualInflation) ** (month / 12);
     const educationCost = education.get(month) ?? 0;
-    const cashLoan = input.loan?.paidFrom === "cash" ? (schedule[month]?.payment ?? 0) : 0;
+    const cashLoan = loanPaidFrom === "cash" ? (schedule[month]?.payment ?? 0) : 0;
     const oaShortfall = cpf?.oaShortfall[month] ?? 0;
     const cpfLife =
       cpf && cpf.payoutStartMonth !== null && month >= cpf.payoutStartMonth ? cpf.monthlyPayout : 0;
     const wage = wageAtMonth(month);
-    const employeeCpf = monthlyContributions(age, wage, calendarYearAtMonth(month)).employee;
+    const employeeCpf = input.includeCpf
+      ? monthlyContributions(age, wage, calendarYearAtMonth(month)).employee
+      : 0;
     const sweepIncome = sweepMonth === month && cpf && !swept ? cpf.oaWithdrawn : 0;
     const oaCredit = cpf?.postSweepOaCredits[month] ?? 0;
     if (sweepMonth === month && cpf) swept = true;
@@ -423,8 +426,10 @@ function simulate(input: PlanInput): Simulation {
     projectedCashAtRetirement = 0;
   }
 
-  const firstLoan = input.loan?.paidFrom === "cash" ? (schedule[0]?.payment ?? 0) : 0;
-  const employeeNow = monthlyContributions(input.currentAge, input.monthlyIncome, calendarYearAtMonth(0)).employee;
+  const firstLoan = loanPaidFrom === "cash" ? (schedule[0]?.payment ?? 0) : 0;
+  const employeeNow = input.includeCpf
+    ? monthlyContributions(input.currentAge, input.monthlyIncome, calendarYearAtMonth(0)).employee
+    : 0;
   const lifeAlreadyPaying = cpf?.payoutStartMonth === 0 ? cpf.monthlyPayout : 0;
   const monthlySavingToday =
     input.monthlyIncome -
@@ -525,7 +530,7 @@ export function calculatePlan(input: PlanInput): PlanResult {
     extraMonthlySaving: canRetire ? 0 : minimumExtra(input),
     spendingCutToday: canRetire ? 0 : spendingCut(input),
     spendingCutNow: canRetire ? 0 : spendingCutNow(input),
-    salaryCapApplies: projectedSalaryExceedsCeiling(input),
+    salaryCapApplies: input.includeCpf && projectedSalaryExceedsCeiling(input),
     earliestRetirementAge: canRetire ? null : earliestAge(input),
     moneyRunsOutAge: base.moneyRunsOutAge,
     endingBalance: base.endingBalance,

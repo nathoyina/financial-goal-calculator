@@ -51,7 +51,7 @@ export function gapBand(gap: number): string {
   return "over-500k";
 }
 
-const OPTIONAL_STEPS = new Set<StepName>(["housing loan", "CPF", "education"]);
+const OPTIONAL_STEPS = new Set<StepName>(["housing loan", "education"]);
 
 export interface EducationCompletedTracking {
   children_count: number;
@@ -62,17 +62,26 @@ export interface EducationCompletedTracking {
 }
 
 /**
- * Step Completed props. Housing, CPF, and education also record the Yes or No answer.
+ * Step Completed props. The retirement-age step records residency.
+ * Housing and education also record the Yes or No answer.
+ * CPF records whether any balance entered is above zero, and not the amount.
+ * A foreigner does not get a CPF Step Completed event.
  * A Yes on education adds one list per child, in child order. A No carries only step and answer.
  * No amounts.
  */
+export type ResidencyAnalytics = "citizen" | "pr" | "foreigner";
+
 export function stepCompletedProps(
   step: StepName,
   answer?: "yes" | "no",
   education?: EducationCompletedTracking,
+  enteredCpfBalances?: "yes" | "no",
+  residency?: ResidencyAnalytics,
 ): Record<string, AnalyticsProp> {
   const props: Record<string, AnalyticsProp> = { step };
+  if (step === "retirement age" && residency) props.residency = residency;
   if (OPTIONAL_STEPS.has(step) && answer) props.answer = answer;
+  if (step === "CPF" && enteredCpfBalances) props.entered_cpf_balances = enteredCpfBalances;
   if (step === "education" && answer === "yes" && education) {
     props.children_count = education.children_count;
     props.education_choice = education.education_choice;
@@ -87,8 +96,9 @@ export function verdictAnalyticsProps(input: {
   gap: number;
   retirementAge: number;
   hasHousingLoan: boolean;
-  /** True when the calculation includes CPF balances. A Yes later switched to No is false. */
-  hasCpf: boolean;
+  residency: ResidencyAnalytics;
+  /** Citizen or permanent resident only. Yes when any balance entered is above zero. */
+  enteredCpfBalances?: "yes" | "no";
   hasChildren: boolean;
   reliesOnEstimate: boolean;
   /** True only for the first verdict of this browser session. */
@@ -101,7 +111,8 @@ export function verdictAnalyticsProps(input: {
     gap_band: gapBand(input.gap),
     retirement_age_band: retirementAgeBand(input.retirementAge),
     has_housing_loan: input.hasHousingLoan,
-    has_cpf: input.hasCpf,
+    residency: input.residency,
+    ...(input.enteredCpfBalances ? { entered_cpf_balances: input.enteredCpfBalances } : {}),
     has_children: input.hasChildren,
     relies_on_estimate: input.reliesOnEstimate,
     is_first_verdict: input.isFirstVerdict,

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { calculatePlan, estimateNotice, type PlanInput } from "./plan";
-import { DEFAULT_PLAN_FORM, parsePlanForm, validateStep } from "./plan-form";
+import { DEFAULT_PLAN_FORM, enteredCpfBalances, parsePlanForm, validateStep, type PlanFormState } from "./plan-form";
+
+function citizenForm(patch: Partial<PlanFormState> = {}): PlanFormState {
+  return { ...DEFAULT_PLAN_FORM, residency: "citizen", ...patch };
+}
 import { parseDecimal } from "./parse";
 import {
   cpfLifeDollarYear,
@@ -29,7 +33,7 @@ const base: PlanInput = {
   annualReturn: 0,
   annualInflation: 0,
   extraMonthlySaving: 0,
-  includeCpf: false,
+  includeCpf: true,
   cpf: { oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 },
   loan: null,
   children: [],
@@ -49,7 +53,7 @@ describe("money parsing", () => {
     expect(parseDecimal("12abc")).toBeNull();
     expect(parseDecimal("S$")).toBeNull();
 
-    const parsed = parsePlanForm({ ...DEFAULT_PLAN_FORM, monthlyIncome: "S$6,000", cashSavings: "1,200" });
+    const parsed = parsePlanForm({ ...citizenForm(), monthlyIncome: "S$6,000", cashSavings: "1,200" });
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
     expect(parsed.input.monthlyIncome).toBe(6000);
@@ -59,13 +63,16 @@ describe("money parsing", () => {
 
 describe("validation reasons", () => {
   it("classifies a blank, a bad format, and an impossible age", () => {
-    expect(validateStep(0, { ...DEFAULT_PLAN_FORM, currentAge: "" })?.reason).toBe("missing");
-    expect(validateStep(0, { ...DEFAULT_PLAN_FORM, retirementAge: "soon" })?.reason).toBe("format");
-    expect(validateStep(0, { ...DEFAULT_PLAN_FORM, currentAge: "200" })?.reason).toBe("out-of-range");
-    expect(validateStep(0, { ...DEFAULT_PLAN_FORM, currentAge: "35", retirementAge: "35" })?.reason).toBe(
+    expect(validateStep(0, { ...citizenForm(), currentAge: "" })?.reason).toBe("missing");
+    expect(validateStep(0, { ...citizenForm(), retirementAge: "soon" })?.reason).toBe("format");
+    expect(validateStep(0, { ...citizenForm(), currentAge: "200" })?.reason).toBe("out-of-range");
+    expect(validateStep(0, { ...citizenForm(), currentAge: "35", retirementAge: "35" })?.reason).toBe(
       "out-of-range",
     );
-    expect(validateStep(1, { ...DEFAULT_PLAN_FORM, monthlyIncome: "S$6,000" })).toBeNull();
+    expect(validateStep(1, { ...citizenForm(), monthlyIncome: "S$6,000" })).toBeNull();
+    expect(validateStep(0, DEFAULT_PLAN_FORM)?.field).toBe("residency");
+    expect(validateStep(0, DEFAULT_PLAN_FORM)?.reason).toBe("missing");
+    expect(DEFAULT_PLAN_FORM.residency).toBeNull();
   });
 });
 
@@ -199,38 +206,42 @@ describe("optional yes or no", () => {
     presetEdited: false,
   };
 
-  it("checks the fields only after Yes", () => {
+  it("checks loan and education fields only after Yes, and always checks CPF balances", () => {
     expect(validateStep(2, DEFAULT_PLAN_FORM)).toBeNull();
-    expect(validateStep(2, { ...DEFAULT_PLAN_FORM, loanAnswer: "no", loanBalance: "" })).toBeNull();
-    expect(validateStep(2, { ...DEFAULT_PLAN_FORM, loanAnswer: "yes", loanBalance: "" })?.field).toBe("loanBalance");
+    expect(validateStep(2, { ...citizenForm(), loanAnswer: "no", loanBalance: "" })).toBeNull();
+    expect(validateStep(2, { ...citizenForm(), loanAnswer: "yes", loanBalance: "" })?.field).toBe("loanBalance");
 
     expect(validateStep(3, DEFAULT_PLAN_FORM)).toBeNull();
-    expect(validateStep(3, { ...DEFAULT_PLAN_FORM, cpfAnswer: "no", oa: "" })).toBeNull();
-    expect(validateStep(3, { ...DEFAULT_PLAN_FORM, cpfAnswer: "yes" })).toBeNull();
+    expect(validateStep(3, { ...citizenForm(), oa: "", sa: "", ra: "", ma: "" })).toBeNull();
+    expect(validateStep(3, { ...citizenForm(), oa: "0", sa: "0", ma: "0" })).toBeNull();
+    expect(validateStep(3, { ...citizenForm(), ma: "none" })?.reason).toBe("format");
+    expect(validateStep(3, { ...citizenForm(), currentAge: "60", ra: "abc" })?.field).toBe("ra");
+    expect(validateStep(3, { ...citizenForm(), currentAge: "60", sa: "abc", ra: "" })).toBeNull();
 
     expect(validateStep(4, DEFAULT_PLAN_FORM)).toBeNull();
-    expect(validateStep(4, { ...DEFAULT_PLAN_FORM, childrenAnswer: "yes" })?.message).toBe("Add a child, or choose No.");
-    expect(validateStep(4, { ...DEFAULT_PLAN_FORM, childrenAnswer: "no", children: [child] })).toBeNull();
-    expect(validateStep(4, { ...DEFAULT_PLAN_FORM, childrenAnswer: "yes", children: [child] })).toBeNull();
+    expect(validateStep(4, { ...citizenForm(), childrenAnswer: "yes" })?.message).toBe("Add a child, or choose No.");
+    expect(validateStep(4, { ...citizenForm(), childrenAnswer: "no", children: [child] })).toBeNull();
+    expect(validateStep(4, { ...citizenForm(), childrenAnswer: "yes", children: [child] })).toBeNull();
   });
 
-  it("treats No as no loan, no CPF, and no children", () => {
+  it("treats No as no loan and no children, and still includes CPF when balances are blank", () => {
     const noLoan = parsePlanForm({
-      ...DEFAULT_PLAN_FORM,
+      ...citizenForm(),
       loanAnswer: "no",
       hasLoan: true,
       loanBalance: "300000",
     });
     expect(noLoan.ok && noLoan.input.loan).toBeNull();
 
-    const noCpf = parsePlanForm({ ...DEFAULT_PLAN_FORM, cpfAnswer: "no", includeCpf: true });
-    expect(noCpf.ok && noCpf.input.includeCpf).toBe(false);
+    const blankCpf = parsePlanForm(citizenForm());
+    expect(blankCpf.ok && blankCpf.input.includeCpf).toBe(true);
+    expect(blankCpf.ok && blankCpf.input.cpf).toEqual({ oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 });
 
-    const noChildren = parsePlanForm({ ...DEFAULT_PLAN_FORM, childrenAnswer: "no", children: [child] });
+    const noChildren = parsePlanForm({ ...citizenForm(), childrenAnswer: "no", children: [child] });
     expect(noChildren.ok && noChildren.input.children).toEqual([]);
 
     const yesLoan = parsePlanForm({
-      ...DEFAULT_PLAN_FORM,
+      ...citizenForm(),
       loanAnswer: "yes",
       hasLoan: true,
       loanBalance: "300000",
@@ -239,7 +250,7 @@ describe("optional yes or no", () => {
     });
     expect(yesLoan.ok && yesLoan.input.loan?.balance).toBe(300_000);
 
-    const unanswered = parsePlanForm(DEFAULT_PLAN_FORM);
+    const unanswered = parsePlanForm(citizenForm());
     expect(unanswered.ok && unanswered.input.includeCpf).toBe(true);
     expect(unanswered.ok && unanswered.input.loan).toBeNull();
     expect(unanswered.ok && unanswered.input.children).toEqual([]);
@@ -247,7 +258,7 @@ describe("optional yes or no", () => {
 
   it("ignores figures while No is selected and uses them again when Yes is chosen", () => {
     const loanFields = {
-      ...DEFAULT_PLAN_FORM,
+      ...citizenForm(),
       hasLoan: true,
       loanBalance: "12000",
       loanRate: "0",
@@ -267,24 +278,28 @@ describe("optional yes or no", () => {
       expect(loanAgain.result.gap).toBeCloseTo(loanYes.result.gap, 4);
     }
 
-    const cpfFields = { ...DEFAULT_PLAN_FORM, includeCpf: true, oa: "400000" };
-    const cpfYes = parsePlanForm({ ...cpfFields, cpfAnswer: "yes" });
-    const cpfNo = parsePlanForm({ ...cpfFields, cpfAnswer: "no" });
-    const cpfAgain = parsePlanForm({ ...cpfFields, cpfAnswer: "yes" });
-    expect(cpfYes.ok && cpfNo.ok && cpfAgain.ok).toBe(true);
-    if (cpfYes.ok && cpfNo.ok && cpfAgain.ok) {
-      expect(cpfYes.input.includeCpf).toBe(true);
-      expect(cpfYes.input.cpf.oa).toBe(400_000);
-      expect(cpfNo.input.includeCpf).toBe(false);
-      expect(cpfNo.input.cpf.oa).toBe(0);
-      expect(cpfNo.result.cpfLifeMonthly).toBe(0);
-      expect(cpfNo.result.projectedCashAtRetirement).not.toBeCloseTo(cpfYes.result.projectedCashAtRetirement, 0);
-      expect(cpfAgain.input.cpf.oa).toBe(400_000);
-      expect(cpfAgain.result.cpfLifeMonthly).toBeCloseTo(cpfYes.result.cpfLifeMonthly, 4);
+    const blank = parsePlanForm(citizenForm());
+    const withOa = parsePlanForm({ ...citizenForm(), oa: "400000" });
+    const backToBlank = parsePlanForm({ ...citizenForm(), oa: "" });
+    const leftOut = blank.ok
+      ? calculatePlan({ ...blank.input, includeCpf: false, cpf: { oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 } })
+      : null;
+    expect(blank.ok && withOa.ok && backToBlank.ok && leftOut).toBeTruthy();
+    if (blank.ok && withOa.ok && backToBlank.ok && leftOut) {
+      expect(withOa.input.includeCpf).toBe(true);
+      expect(withOa.input.cpf.oa).toBe(400_000);
+      expect(blank.input.includeCpf).toBe(true);
+      expect(blank.input.cpf).toEqual({ oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 });
+      expect(blank.result.cpfLifeMonthly).toBeGreaterThan(0);
+      expect(blank.result.projectedCashAtRetirement).not.toBeCloseTo(leftOut.projectedCashAtRetirement, 0);
+      expect(blank.result.projectedCashAtRetirement).not.toBeCloseTo(withOa.result.projectedCashAtRetirement, 0);
+      expect(backToBlank.input.includeCpf).toBe(true);
+      expect(backToBlank.result.gap).toBeCloseTo(blank.result.gap, 4);
+      expect(backToBlank.result.cpfLifeMonthly).toBeCloseTo(blank.result.cpfLifeMonthly, 4);
     }
 
     const withChild = {
-      ...DEFAULT_PLAN_FORM,
+      ...citizenForm(),
       children: [child],
     };
     const childYes = parsePlanForm({ ...withChild, childrenAnswer: "yes" });
@@ -298,6 +313,105 @@ describe("optional yes or no", () => {
       expect(childNo.result.projectedCashAtRetirement).toBeGreaterThan(childYes.result.projectedCashAtRetirement);
       expect(childAgain.result.gap).toBeCloseTo(childYes.result.gap, 4);
     }
+  });
+
+  it("includes CPF on the default plan when the balance fields are left empty", () => {
+    const parsed = parsePlanForm(citizenForm());
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(DEFAULT_PLAN_FORM.oa).toBe("");
+    expect(DEFAULT_PLAN_FORM.sa).toBe("");
+    expect(DEFAULT_PLAN_FORM.ra).toBe("");
+    expect(DEFAULT_PLAN_FORM.ma).toBe("");
+    expect(parsed.input.includeCpf).toBe(true);
+    expect(parsed.input.cpf).toEqual({ oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 });
+
+    const previousStarterBalances = calculatePlan({
+      ...parsed.input,
+      includeCpf: true,
+      cpf: { oa: 40_000, sa: 25_000, ra: 0, ma: 15_000, payoutAge: 65 },
+    });
+    const leftOut = calculatePlan({
+      ...parsed.input,
+      includeCpf: false,
+      cpf: { oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 },
+    });
+    expect(parsed.result.cpfLifeMonthly).toBeGreaterThan(0);
+    expect(parsed.result.monthlySavingToday).toBeCloseTo(1_600, 4);
+    expect(parsed.result.gap).not.toBeCloseTo(previousStarterBalances.gap, 0);
+    expect(parsed.result.projectedCashAtRetirement).not.toBeCloseTo(leftOut.projectedCashAtRetirement, 0);
+    expect(parsed.result.cpfLifeMonthly).not.toBeCloseTo(previousStarterBalances.cpfLifeMonthly, 0);
+
+    const younger = parsePlanForm({ ...citizenForm(), sa: "1000", ra: "99999" });
+    expect(younger.ok && younger.input.cpf.sa).toBe(1_000);
+    expect(younger.ok && younger.input.cpf.ra).toBe(0);
+    expect(enteredCpfBalances({ ...citizenForm(), sa: "1000" })).toBe("yes");
+    expect(enteredCpfBalances(DEFAULT_PLAN_FORM)).toBe("no");
+
+    const older = parsePlanForm({
+      ...citizenForm(),
+      currentAge: "60",
+      oa: "10000",
+      sa: "99999",
+      ra: "5000",
+    });
+    expect(older.ok && older.input.includeCpf).toBe(true);
+    expect(older.ok && older.input.cpf).toEqual({ oa: 10_000, sa: 0, ra: 5_000, ma: 0, payoutAge: 65 });
+    expect(enteredCpfBalances({ ...citizenForm(), currentAge: "60", sa: "99999", ra: "" })).toBe("no");
+    expect(enteredCpfBalances({ ...citizenForm(), currentAge: "60", ra: "5000" })).toBe("yes");
+  });
+
+  it("uses full citizen rates for a permanent resident and drops CPF for a foreigner", () => {
+    const balances = { oa: "80000", sa: "20000", ra: "99999", ma: "10000" };
+    const citizen = parsePlanForm(citizenForm(balances));
+    const permanentResident = parsePlanForm(citizenForm({ ...balances, residency: "pr" }));
+    const foreigner = parsePlanForm(
+      citizenForm({
+        ...balances,
+        residency: "foreigner",
+        loanAnswer: "yes",
+        hasLoan: true,
+        loanBalance: "12000",
+        loanRate: "0",
+        loanYears: "1",
+        loanPaidFrom: "oa",
+      }),
+    );
+    const foreignerAgain = parsePlanForm(citizenForm({ ...balances, residency: "citizen" }));
+    const foreignerSameLoan = parsePlanForm(
+      citizenForm({
+        residency: "foreigner",
+        loanAnswer: "yes",
+        hasLoan: true,
+        loanBalance: "12000",
+        loanRate: "0",
+        loanYears: "1",
+        loanPaidFrom: "oa",
+      }),
+    );
+
+    expect(citizen.ok && permanentResident.ok && foreigner.ok && foreignerAgain.ok && foreignerSameLoan.ok).toBe(true);
+    if (!citizen.ok || !permanentResident.ok || !foreigner.ok || !foreignerAgain.ok || !foreignerSameLoan.ok) return;
+
+    expect(permanentResident.input.includeCpf).toBe(true);
+    expect(permanentResident.input.cpf.oa).toBe(80_000);
+    expect(permanentResident.result.monthlySavingToday).toBeCloseTo(citizen.result.monthlySavingToday, 4);
+    expect(permanentResident.result.cpfLifeMonthly).toBeCloseTo(citizen.result.cpfLifeMonthly, 4);
+    expect(permanentResident.result.gap).toBeCloseTo(citizen.result.gap, 4);
+
+    expect(foreigner.input.includeCpf).toBe(false);
+    expect(foreigner.input.cpf).toEqual({ oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 });
+    expect(foreigner.input.loan?.paidFrom).toBe("cash");
+    expect(foreigner.result.cpfLifeMonthly).toBe(0);
+    expect(foreigner.result.series.some((point) => (point.oaSweep ?? 0) > 0)).toBe(false);
+    expect(foreigner.result.monthlySavingToday).toBeGreaterThan(citizen.result.monthlySavingToday);
+    expect(foreigner.result.projectedCashAtRetirement).toBeCloseTo(foreignerSameLoan.result.projectedCashAtRetirement, 4);
+    expect(foreigner.result.gap).toBeCloseTo(foreignerSameLoan.result.gap, 4);
+    expect(foreigner.result.cpfLifeMonthly).toBe(0);
+    expect(foreignerAgain.input.includeCpf).toBe(true);
+    expect(foreignerAgain.input.cpf.oa).toBe(80_000);
+    expect(foreignerAgain.result.gap).toBeCloseTo(citizen.result.gap, 4);
+    expect(foreignerAgain.result.cpfLifeMonthly).toBeCloseTo(citizen.result.cpfLifeMonthly, 4);
   });
 });
 
@@ -494,8 +608,8 @@ describe("salary cap note", () => {
     expect(under.salaryCapApplies).toBe(false);
     expect(estimateNotice(under)).not.toContain("salary cap");
 
-    const withoutBalances = calculatePlan({ ...base, monthlyIncome: 9_000, includeCpf: false });
-    expect(withoutBalances.salaryCapApplies).toBe(true);
-    expect(estimateNotice(withoutBalances)).toContain("The CPF salary cap after 2026 is assumed to stay at S$8,000.");
+    const foreigner = calculatePlan({ ...base, monthlyIncome: 9_000, includeCpf: false });
+    expect(foreigner.salaryCapApplies).toBe(false);
+    expect(estimateNotice(foreigner) ?? "").not.toContain("salary cap");
   });
 });

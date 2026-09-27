@@ -160,7 +160,7 @@ export function BalanceChart({
         onPointerMove={(event) => move(event.clientX, event.currentTarget.getBoundingClientRect())}
         onPointerLeave={() => setHoverIndex(null)}
       >
-        <title id={`${chartId}-title`}>Savings balance from age {formatAge(minAge)} to {formatAge(maxAge)}, in {dollars}</title>
+        <title id={`${chartId}-title`}>{`Savings balance from age ${formatAge(minAge)} to ${formatAge(maxAge)}, in ${dollars}`}</title>
         <desc id={`${chartId}-desc`}>
           The solid line is the working years. The dashed line is retirement. Amounts are in {dollars}.
           {sweepText ? ` ${sweepText}.` : ""}

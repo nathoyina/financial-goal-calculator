@@ -249,10 +249,11 @@ export function projectCpf(input: CpfProjectionInput): CpfProjection {
     postSweepOaCredits.push(0);
     const age = (startMonths + month) / 12;
     const ageBefore = (startMonths + month - 1) / 12;
-    if (month === 0 && age >= 55 && input.currentAge >= 55) {
-      current = closeSpecialAccount(current, sums.frs);
-    }
-    if (month > 0 && ageBefore < 55 && age >= 55) {
+    // Someone who is already 55 or older entered Ordinary and Retirement
+    // Account balances as they stand today. Do not run the turning-55
+    // transfer of OA into RA on the first month. A member who reaches 55
+    // later in the projection still does.
+    if (input.currentAge < 55 && month > 0 && ageBefore < 55 && age >= 55) {
       current = closeSpecialAccount(current, sums.frs);
     }
 

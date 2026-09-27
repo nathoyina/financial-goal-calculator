@@ -26,7 +26,12 @@ export function createChildForm(id: string): ChildForm {
 
 export type OptionalAnswer = "yes" | "no" | null;
 
+/** Nothing is selected until the person chooses. Same pattern as housing, education, and study choices. */
+export type Residency = "citizen" | "pr" | "foreigner";
+
 export interface PlanFormState {
+  /** Null until the person chooses citizen, permanent resident, or foreigner. */
+  residency: Residency | null;
   currentAge: string;
   retirementAge: string;
   lifeExpectancy: string;
@@ -38,9 +43,6 @@ export interface PlanFormState {
   annualReturn: string;
   annualInflation: string;
   extraMonthlySaving: string;
-  includeCpf: boolean;
-  /** Null until the person answers the CPF question. */
-  cpfAnswer: OptionalAnswer;
   oa: string;
   sa: string;
   ra: string;
@@ -60,6 +62,7 @@ export interface PlanFormState {
 }
 
 export const DEFAULT_PLAN_FORM: PlanFormState = {
+  residency: null,
   currentAge: "35",
   retirementAge: "65",
   lifeExpectancy: "90",
@@ -71,12 +74,10 @@ export const DEFAULT_PLAN_FORM: PlanFormState = {
   annualReturn: "5",
   annualInflation: "2.5",
   extraMonthlySaving: "0",
-  includeCpf: true,
-  cpfAnswer: null,
-  oa: "40000",
-  sa: "25000",
-  ra: "0",
-  ma: "15000",
+  oa: "",
+  sa: "",
+  ra: "",
+  ma: "",
   payoutAge: "65",
   hasLoan: false,
   loanAnswer: null,
@@ -108,6 +109,45 @@ function isFieldError(value: number | FieldError): value is FieldError {
   return typeof value !== "number";
 }
 
+/** Blank CPF balances count as zero and do not block Continue. */
+function readCpfBalance(raw: string, field: string, label: string): number | FieldError {
+  if (raw.trim() === "") return 0;
+  return readNumber(raw, field, label);
+}
+
+/** CPF closes the Special Account at 55, so the step asks for the Retirement Account instead. */
+export function showsRetirementAccount(currentAge: number): boolean {
+  return currentAge >= 55;
+}
+
+/** Citizen and permanent resident stay in CPF. A foreigner does not. */
+export function includesCpf(residency: Residency | null): boolean {
+  return residency === "citizen" || residency === "pr";
+}
+
+/** Housing No skips the CPF step for a foreigner. Everyone else moves one step forward. */
+export function stepAfter(step: number, form: PlanFormState): number {
+  if (step === 2 && form.residency === "foreigner") return 4;
+  return step + 1;
+}
+
+/** Back from education skips the CPF step for a foreigner. */
+export function stepBefore(step: number, form: PlanFormState): number {
+  if (step === 4 && form.residency === "foreigner") return 2;
+  return step - 1;
+}
+
+/** Yes when any balance the step is asking for is above zero. Amounts are not recorded. */
+export function enteredCpfBalances(form: PlanFormState): "yes" | "no" {
+  const age = parseDecimal(form.currentAge);
+  const fields = [form.oa, form.ma, age !== null && showsRetirementAccount(age) ? form.ra : form.sa];
+  const entered = fields.some((raw) => {
+    const value = parseDecimal(raw);
+    return value !== null && value > 0;
+  });
+  return entered ? "yes" : "no";
+}
+
 /** Step checks used by Continue. Invalid ages and blank fields cannot be submitted. */
 export function validateStep(step: number, form: PlanFormState): FieldError | null {
   if (step === 0) {
@@ -132,6 +172,13 @@ export function validateStep(step: number, form: PlanFormState): FieldError | nu
         field: "lifeExpectancy",
         message: "Life expectancy has to be after the retirement age.",
         reason: "out-of-range",
+      };
+    }
+    if (form.residency === null) {
+      return {
+        field: "residency",
+        message: "Choose Singapore Citizen, Permanent Resident, or Foreigner.",
+        reason: "missing",
       };
     }
   }
@@ -165,16 +212,17 @@ export function validateStep(step: number, form: PlanFormState): FieldError | nu
       }
     }
   }
-  if (step === 3 && form.cpfAnswer === "yes") {
+  if (step === 3) {
+    const age = readNumber(form.currentAge, "currentAge", "current age");
+    const retirementAccount = !isFieldError(age) && showsRetirementAccount(age);
     const fields: [keyof PlanFormState, string][] = [
       ["oa", "Ordinary Account"],
-      ["sa", "Special Account"],
-      ["ra", "Retirement Account"],
+      retirementAccount ? ["ra", "Retirement Account"] : ["sa", "Special Account"],
       ["ma", "MediSave"],
       ["payoutAge", "CPF LIFE payout age"],
     ];
     for (const [key, label] of fields) {
-      const value = readNumber(String(form[key]), key, label);
+      const value = key === "payoutAge" ? readNumber(String(form[key]), key, label) : readCpfBalance(String(form[key]), key, label);
       if (isFieldError(value)) return value;
     }
   }
@@ -244,22 +292,34 @@ export function parsePlanForm(
   const extraMonthlySaving = required(form.extraMonthlySaving, "extraMonthlySaving", "other income you'd save");
   if (typeof extraMonthlySaving !== "number") return { ok: false, error: extraMonthlySaving };
 
-  const includeCpf = form.cpfAnswer === "yes" ? true : form.cpfAnswer === "no" ? false : form.includeCpf;
+  if (form.residency === null) {
+    return {
+      ok: false,
+      error: {
+        field: "residency",
+        message: "Choose Singapore Citizen, Permanent Resident, or Foreigner.",
+        reason: "missing",
+      },
+    };
+  }
+
   const hasLoan = form.loanAnswer === "yes" ? true : form.loanAnswer === "no" ? false : form.hasLoan;
   const childForms = form.childrenAnswer === "no" ? [] : form.children;
+  const includeCpf = includesCpf(form.residency);
 
   let cpf: PlanInput["cpf"] = { oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 };
   if (includeCpf) {
-    const oa = required(form.oa, "oa", "Ordinary Account");
+    const oa = readCpfBalance(form.oa, "oa", "Ordinary Account");
     if (typeof oa !== "number") return { ok: false, error: oa };
-    const sa = required(form.sa, "sa", "Special Account");
-    if (typeof sa !== "number") return { ok: false, error: sa };
-    const ra = required(form.ra, "ra", "Retirement Account");
-    if (typeof ra !== "number") return { ok: false, error: ra };
-    const ma = required(form.ma, "ma", "MediSave");
+    const ma = readCpfBalance(form.ma, "ma", "MediSave");
     if (typeof ma !== "number") return { ok: false, error: ma };
     const payoutAge = required(form.payoutAge, "payoutAge", "CPF LIFE payout age");
     if (typeof payoutAge !== "number") return { ok: false, error: payoutAge };
+    const retirementAccount = showsRetirementAccount(currentAge);
+    const sa = retirementAccount ? 0 : readCpfBalance(form.sa, "sa", "Special Account");
+    if (typeof sa !== "number") return { ok: false, error: sa };
+    const ra = retirementAccount ? readCpfBalance(form.ra, "ra", "Retirement Account") : 0;
+    if (typeof ra !== "number") return { ok: false, error: ra };
     cpf = { oa, sa, ra, ma, payoutAge };
   }
 
@@ -288,7 +348,7 @@ export function parsePlanForm(
       annualInterestRate: rate / 100,
       remainingMonths: Math.round(years * 12),
       monthlyInstalment,
-      paidFrom: form.loanPaidFrom,
+      paidFrom: includeCpf ? form.loanPaidFrom : "cash",
     };
   }
 
