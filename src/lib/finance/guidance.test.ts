@@ -199,14 +199,16 @@ describe("optional yes or no", () => {
     presetEdited: false,
   };
 
-  it("checks the fields only after Yes", () => {
+  it("checks loan and education fields only after Yes, and always checks CPF balances", () => {
     expect(validateStep(2, DEFAULT_PLAN_FORM)).toBeNull();
     expect(validateStep(2, { ...DEFAULT_PLAN_FORM, loanAnswer: "no", loanBalance: "" })).toBeNull();
     expect(validateStep(2, { ...DEFAULT_PLAN_FORM, loanAnswer: "yes", loanBalance: "" })?.field).toBe("loanBalance");
 
     expect(validateStep(3, DEFAULT_PLAN_FORM)).toBeNull();
-    expect(validateStep(3, { ...DEFAULT_PLAN_FORM, cpfAnswer: "no", oa: "" })).toBeNull();
-    expect(validateStep(3, { ...DEFAULT_PLAN_FORM, cpfAnswer: "yes" })).toBeNull();
+    expect(validateStep(3, { ...DEFAULT_PLAN_FORM, oa: "0", sa: "0", ra: "0", ma: "0", payoutAge: "65" })).toBeNull();
+    expect(validateStep(3, { ...DEFAULT_PLAN_FORM, oa: "" })?.field).toBe("oa");
+    expect(validateStep(3, { ...DEFAULT_PLAN_FORM, oa: "" })?.reason).toBe("missing");
+    expect(validateStep(3, { ...DEFAULT_PLAN_FORM, ma: "none" })?.reason).toBe("format");
 
     expect(validateStep(4, DEFAULT_PLAN_FORM)).toBeNull();
     expect(validateStep(4, { ...DEFAULT_PLAN_FORM, childrenAnswer: "yes" })?.message).toBe("Add a child, or choose No.");
@@ -214,7 +216,7 @@ describe("optional yes or no", () => {
     expect(validateStep(4, { ...DEFAULT_PLAN_FORM, childrenAnswer: "yes", children: [child] })).toBeNull();
   });
 
-  it("treats No as no loan, no CPF, and no children", () => {
+  it("treats No as no loan and no children, and leaves all-zero CPF balances out", () => {
     const noLoan = parsePlanForm({
       ...DEFAULT_PLAN_FORM,
       loanAnswer: "no",
@@ -223,8 +225,9 @@ describe("optional yes or no", () => {
     });
     expect(noLoan.ok && noLoan.input.loan).toBeNull();
 
-    const noCpf = parsePlanForm({ ...DEFAULT_PLAN_FORM, cpfAnswer: "no", includeCpf: true });
+    const noCpf = parsePlanForm(DEFAULT_PLAN_FORM);
     expect(noCpf.ok && noCpf.input.includeCpf).toBe(false);
+    expect(noCpf.ok && noCpf.input.cpf).toEqual({ oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 });
 
     const noChildren = parsePlanForm({ ...DEFAULT_PLAN_FORM, childrenAnswer: "no", children: [child] });
     expect(noChildren.ok && noChildren.input.children).toEqual([]);
@@ -240,7 +243,7 @@ describe("optional yes or no", () => {
     expect(yesLoan.ok && yesLoan.input.loan?.balance).toBe(300_000);
 
     const unanswered = parsePlanForm(DEFAULT_PLAN_FORM);
-    expect(unanswered.ok && unanswered.input.includeCpf).toBe(true);
+    expect(unanswered.ok && unanswered.input.includeCpf).toBe(false);
     expect(unanswered.ok && unanswered.input.loan).toBeNull();
     expect(unanswered.ok && unanswered.input.children).toEqual([]);
   });
@@ -267,20 +270,21 @@ describe("optional yes or no", () => {
       expect(loanAgain.result.gap).toBeCloseTo(loanYes.result.gap, 4);
     }
 
-    const cpfFields = { ...DEFAULT_PLAN_FORM, includeCpf: true, oa: "400000" };
-    const cpfYes = parsePlanForm({ ...cpfFields, cpfAnswer: "yes" });
-    const cpfNo = parsePlanForm({ ...cpfFields, cpfAnswer: "no" });
-    const cpfAgain = parsePlanForm({ ...cpfFields, cpfAnswer: "yes" });
-    expect(cpfYes.ok && cpfNo.ok && cpfAgain.ok).toBe(true);
-    if (cpfYes.ok && cpfNo.ok && cpfAgain.ok) {
-      expect(cpfYes.input.includeCpf).toBe(true);
-      expect(cpfYes.input.cpf.oa).toBe(400_000);
-      expect(cpfNo.input.includeCpf).toBe(false);
-      expect(cpfNo.input.cpf.oa).toBe(0);
-      expect(cpfNo.result.cpfLifeMonthly).toBe(0);
-      expect(cpfNo.result.projectedCashAtRetirement).not.toBeCloseTo(cpfYes.result.projectedCashAtRetirement, 0);
-      expect(cpfAgain.input.cpf.oa).toBe(400_000);
-      expect(cpfAgain.result.cpfLifeMonthly).toBeCloseTo(cpfYes.result.cpfLifeMonthly, 4);
+    const zeros = parsePlanForm(DEFAULT_PLAN_FORM);
+    const withOa = parsePlanForm({ ...DEFAULT_PLAN_FORM, oa: "400000" });
+    const backToZero = parsePlanForm({ ...DEFAULT_PLAN_FORM, oa: "0" });
+    expect(zeros.ok && withOa.ok && backToZero.ok).toBe(true);
+    if (zeros.ok && withOa.ok && backToZero.ok) {
+      expect(withOa.input.includeCpf).toBe(true);
+      expect(withOa.input.cpf.oa).toBe(400_000);
+      expect(zeros.input.includeCpf).toBe(false);
+      expect(zeros.input.cpf).toEqual({ oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 });
+      expect(zeros.result.cpfLifeMonthly).toBe(0);
+      expect(zeros.result.projectedCashAtRetirement).not.toBeCloseTo(withOa.result.projectedCashAtRetirement, 0);
+      expect(backToZero.input.includeCpf).toBe(false);
+      expect(backToZero.result.cpfLifeMonthly).toBe(0);
+      expect(backToZero.result.gap).toBeCloseTo(zeros.result.gap, 4);
+      expect(backToZero.result.projectedCashAtRetirement).toBeCloseTo(zeros.result.projectedCashAtRetirement, 4);
     }
 
     const withChild = {
@@ -298,6 +302,41 @@ describe("optional yes or no", () => {
       expect(childNo.result.projectedCashAtRetirement).toBeGreaterThan(childYes.result.projectedCashAtRetirement);
       expect(childAgain.result.gap).toBeCloseTo(childYes.result.gap, 4);
     }
+  });
+
+  it("keeps the default plan on the same result as leaving CPF balances out", () => {
+    const parsed = parsePlanForm(DEFAULT_PLAN_FORM);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    const leftOut = calculatePlan({
+      ...parsed.input,
+      includeCpf: false,
+      cpf: { oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 },
+    });
+    expect(parsed.input.includeCpf).toBe(false);
+    expect(parsed.input.cpf).toEqual({ oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 });
+    expect(parsed.result.canRetire).toBe(leftOut.canRetire);
+    expect(parsed.result.gap).toBeCloseTo(leftOut.gap, 6);
+    expect(parsed.result.nestEggNeeded).toBeCloseTo(leftOut.nestEggNeeded, 6);
+    expect(parsed.result.projectedCashAtRetirement).toBeCloseTo(leftOut.projectedCashAtRetirement, 6);
+    expect(parsed.result.cpfLifeMonthly).toBe(0);
+    expect(parsed.result.monthlySavingToday).toBeCloseTo(leftOut.monthlySavingToday, 6);
+    expect(parsed.result.monthlySavingToday).toBeCloseTo(1_600, 4);
+
+    const starter = parsePlanForm({
+      ...DEFAULT_PLAN_FORM,
+      oa: "40000",
+      sa: "25000",
+      ra: "0",
+      ma: "15000",
+      payoutAge: "65",
+    });
+    expect(starter.ok).toBe(true);
+    if (!starter.ok) return;
+    expect(starter.input.includeCpf).toBe(true);
+    expect(starter.input.cpf).toEqual({ oa: 40_000, sa: 25_000, ra: 0, ma: 15_000, payoutAge: 65 });
+    expect(starter.result.cpfLifeMonthly).toBeGreaterThan(0);
+    expect(starter.result.gap).not.toBeCloseTo(parsed.result.gap, 0);
   });
 });
 

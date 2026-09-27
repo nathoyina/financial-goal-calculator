@@ -51,7 +51,7 @@ export function gapBand(gap: number): string {
   return "over-500k";
 }
 
-const OPTIONAL_STEPS = new Set<StepName>(["housing loan", "CPF", "education"]);
+const OPTIONAL_STEPS = new Set<StepName>(["housing loan", "education"]);
 
 export interface EducationCompletedTracking {
   children_count: number;
@@ -62,7 +62,8 @@ export interface EducationCompletedTracking {
 }
 
 /**
- * Step Completed props. Housing, CPF, and education also record the Yes or No answer.
+ * Step Completed props. Housing and education also record the Yes or No answer.
+ * CPF is a balance form, so it records the step name only.
  * A Yes on education adds one list per child, in child order. A No carries only step and answer.
  * No amounts.
  */
@@ -87,7 +88,7 @@ export function verdictAnalyticsProps(input: {
   gap: number;
   retirementAge: number;
   hasHousingLoan: boolean;
-  /** True when the calculation includes CPF balances. A Yes later switched to No is false. */
+  /** True when the calculation includes CPF balances. All-zero balances are false. */
   hasCpf: boolean;
   hasChildren: boolean;
   reliesOnEstimate: boolean;

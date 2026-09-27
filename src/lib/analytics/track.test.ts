@@ -54,7 +54,9 @@ describe("analytics", () => {
     }).is_first_verdict).toBe(false);
     expect(stepCompletedProps("retirement age")).toEqual({ step: "retirement age" });
     expect(stepCompletedProps("housing loan", "no")).toEqual({ step: "housing loan", answer: "no" });
-    expect(stepCompletedProps("CPF", "yes")).toEqual({ step: "CPF", answer: "yes" });
+    expect(stepCompletedProps("CPF")).toEqual({ step: "CPF" });
+    expect(stepCompletedProps("CPF", "yes")).toEqual({ step: "CPF" });
+    expect(stepCompletedProps("CPF", "no")).toEqual({ step: "CPF" });
     expect(stepCompletedProps("education", "no")).toEqual({ step: "education", answer: "no" });
     expect(
       stepCompletedProps("education", "yes", {

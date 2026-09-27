@@ -80,9 +80,9 @@ const FIELD_IDS: Record<string, string> = {
   addChild: "add-child",
 };
 
-export function PlannerApp() {
+export function PlannerApp({ initialStep = 0 }: { initialStep?: number } = {}) {
   const [form, setForm] = useState<PlanFormState>(DEFAULT_PLAN_FORM);
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(initialStep);
   const [error, setError] = useState<FieldError | null>(null);
   const started = useRef(false);
   const verdictSeen = useRef(false);
@@ -202,9 +202,8 @@ export function PlannerApp() {
       started.current = true;
       track("Calculator Started");
     }
-    const answer =
-      step === 2 ? form.loanAnswer : step === 3 ? form.cpfAnswer : step === 4 ? form.childrenAnswer : null;
-    if (step >= 2 && step <= 4 && answer !== "yes") return;
+    const answer = step === 2 ? form.loanAnswer : step === 4 ? form.childrenAnswer : null;
+    if ((step === 2 || step === 4) && answer !== "yes") return;
     const problem = validateStep(step, form);
     if (problem) {
       track("Input Validation Error", { field: problem.field, reason: problem.reason });
@@ -216,8 +215,8 @@ export function PlannerApp() {
       track(
         "Step Completed",
         stepName === "education"
-          ? stepCompletedProps(stepName, answer === "yes" ? "yes" : undefined, educationStepAnalytics(form.children))
-          : stepCompletedProps(stepName, answer === "yes" ? "yes" : undefined),
+          ? stepCompletedProps(stepName, "yes", educationStepAnalytics(form.children))
+          : stepCompletedProps(stepName, stepName === "housing loan" ? "yes" : undefined),
       );
     }
     setStep((current) => current + 1);
@@ -380,35 +379,18 @@ export function PlannerApp() {
           {step === 3 ? (
             <section className="flex flex-col gap-4">
               <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
-                Add your CPF balances to the plan?
+                CPF balances
               </h2>
-              <p id="cpf-choice-hint" className="text-sm leading-5 text-muted">
-                Your CPF contributions from salary are still counted either way.
+              <p className="text-sm leading-6 text-muted">
+                SGFinDex is not available to this app. It is reached through participating banks and government services
+                with Singpass, and there is no public API for an independent calculator. Enter the balances yourself.
+                Use 0 if an account is empty. Salary still has the employee CPF contribution taken out.
               </p>
-              <YesNoChoice
-                value={form.cpfAnswer}
-                yesId="cpf-yes"
-                noId="cpf-no"
-                labelledBy={HEADING_ID}
-                hintId="cpf-choice-hint"
-                controlsId="cpf-fields"
-                onActivate={activateOptional}
-              />
-              <div id="cpf-fields" hidden={form.cpfAnswer !== "yes"}>
-              {form.cpfAnswer === "yes" ? (
-                <>
-                  <p className="text-sm leading-6 text-muted">
-                    SGFinDex is not available to this app. It is reached through participating banks and government services
-                    with Singpass, and there is no public API for an independent calculator. Enter the balances yourself.
-                  </p>
-                  <NumberField id="oa" label="Ordinary Account (OA)" hint={`Savings that can pay a home loan. This plan uses the ${CPF_INTEREST.ordinaryAccount.year} floor rate of ${formatPercent(CPF_INTEREST.ordinaryAccount.value)}.`} value={form.oa} onChange={(value) => update({ oa: value })} prefix="S$" error={fieldError("oa")} />
-                  <NumberField id="sa" label="Special Account (SA)" hint="Closed at 55. Moved into the Retirement Account up to the Full Retirement Sum. Anything above that goes back to the OA." value={form.sa} onChange={(value) => update({ sa: value })} prefix="S$" error={fieldError("sa")} />
-                  <NumberField id="ra" label="Retirement Account (RA)" hint="Usually 0 before 55. This is what CPF LIFE is estimated from." value={form.ra} onChange={(value) => update({ ra: value })} prefix="S$" error={fieldError("ra")} />
-                  <NumberField id="ma" label="MediSave (MA)" hint={`Kept for healthcare. The ${BASIC_HEALTHCARE_SUM.year} Basic Healthcare Sum is ${formatMoney(BASIC_HEALTHCARE_SUM.value)}. It is not spent on living costs here.`} value={form.ma} onChange={(value) => update({ ma: value })} prefix="S$" error={fieldError("ma")} />
-                  <NumberField id="payout-age" label="CPF LIFE payout age" hint={`From ${CPF_LIFE_DEFERRAL.earliestAge} to ${CPF_LIFE_DEFERRAL.latestAge}. Later ages use CPF’s “up to ${formatPercent(CPF_LIFE_DEFERRAL.perYear)} a year” deferral as an estimate, capped at ${formatPercent(CPF_LIFE_DEFERRAL.maxIncrease)}.`} value={form.payoutAge} onChange={(value) => update({ payoutAge: value })} suffix="years" error={fieldError("payoutAge")} />
-                </>
-              ) : null}
-              </div>
+              <NumberField id="oa" label="Ordinary Account (OA)" hint={`Savings that can pay a home loan. This plan uses the ${CPF_INTEREST.ordinaryAccount.year} floor rate of ${formatPercent(CPF_INTEREST.ordinaryAccount.value)}.`} value={form.oa} onChange={(value) => update({ oa: value })} prefix="S$" error={fieldError("oa")} />
+              <NumberField id="sa" label="Special Account (SA)" hint="Closed at 55. Moved into the Retirement Account up to the Full Retirement Sum. Anything above that goes back to the OA." value={form.sa} onChange={(value) => update({ sa: value })} prefix="S$" error={fieldError("sa")} />
+              <NumberField id="ra" label="Retirement Account (RA)" hint="Usually 0 before 55. This is what CPF LIFE is estimated from." value={form.ra} onChange={(value) => update({ ra: value })} prefix="S$" error={fieldError("ra")} />
+              <NumberField id="ma" label="MediSave (MA)" hint={`Kept for healthcare. The ${BASIC_HEALTHCARE_SUM.year} Basic Healthcare Sum is ${formatMoney(BASIC_HEALTHCARE_SUM.value)}. It is not spent on living costs here.`} value={form.ma} onChange={(value) => update({ ma: value })} prefix="S$" error={fieldError("ma")} />
+              <NumberField id="payout-age" label="CPF LIFE payout age" hint={`From ${CPF_LIFE_DEFERRAL.earliestAge} to ${CPF_LIFE_DEFERRAL.latestAge}. Later ages use CPF’s “up to ${formatPercent(CPF_LIFE_DEFERRAL.perYear)} a year” deferral as an estimate, capped at ${formatPercent(CPF_LIFE_DEFERRAL.maxIncrease)}.`} value={form.payoutAge} onChange={(value) => update({ payoutAge: value })} suffix="years" error={fieldError("payoutAge")} />
             </section>
           ) : null}
 
