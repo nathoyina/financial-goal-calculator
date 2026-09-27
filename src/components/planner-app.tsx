@@ -61,6 +61,12 @@ const VERDICT = 5;
 const HEADING_ID = "planner-heading";
 const HOUSING_HINT_ID = "housing-exclusion";
 
+const RESIDENCY_OPTIONS = [
+  ["citizen", "Singapore Citizen"],
+  ["pr", "Permanent Resident"],
+  ["foreigner", "Foreigner"],
+] as const;
+
 const FIELD_IDS: Record<string, string> = {
   residency: "residency",
   currentAge: "current-age",
@@ -192,6 +198,18 @@ export function PlannerApp({
   };
 
   const fieldError = (field: string) => (error?.field === field ? error.message : undefined);
+
+  const onResidencyKeyDown = (index: number, event: KeyboardEvent<HTMLButtonElement>) => {
+    let delta = 0;
+    if (event.key === "ArrowRight" || event.key === "ArrowDown") delta = 1;
+    if (event.key === "ArrowLeft" || event.key === "ArrowUp") delta = -1;
+    if (delta === 0) return;
+    event.preventDefault();
+    const next = (index + delta + RESIDENCY_OPTIONS.length) % RESIDENCY_OPTIONS.length;
+    update({ residency: RESIDENCY_OPTIONS[next][0] });
+    event.currentTarget.parentElement?.querySelectorAll("button")[next]?.focus();
+  };
+
   const noAdvanceLock = useRef(false);
 
   useEffect(() => {
@@ -345,19 +363,14 @@ export function PlannerApp({
                   tabIndex={error?.field === "residency" ? -1 : undefined}
                   className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap"
                 >
-                  {(
-                    [
-                      ["citizen", "Singapore Citizen"],
-                      ["pr", "Permanent Resident"],
-                      ["foreigner", "Foreigner"],
-                    ] as const
-                  ).map(([value, label]) => (
+                  {RESIDENCY_OPTIONS.map(([value, label], index) => (
                     <button
                       key={value}
                       type="button"
                       className={`choice-pill pill w-full sm:w-auto ${form.residency === value ? "pill-shout" : "pill-ghost"}`}
                       aria-pressed={form.residency === value}
                       onClick={() => update({ residency: value })}
+                      onKeyDown={(event) => onResidencyKeyDown(index, event)}
                     >
                       {label}
                     </button>

@@ -178,12 +178,10 @@ html[data-typing="true"] .step-rise {
   outline-color: #fff;
 }
 
-@media (prefers-reduced-motion: no-preference) {
+/* A press or touch hover must not scale the pill. The control moves out from under
+   the pointer, the click hits the row behind it, and the choice never registers. */
+@media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
   html:not([data-typing="true"]) .pill:hover {
     transform: scale(1.03);
-  }
-
-  html:not([data-typing="true"]) .pill:active {
-    transform: scale(0.98);
   }
 }
