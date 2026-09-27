@@ -17,7 +17,7 @@ const base: PlanInput = {
   annualReturn: 0,
   annualInflation: 0,
   extraMonthlySaving: 0,
-  includeCpf: false,
+  includeCpf: true,
   cpf: { oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 },
   loan: null,
   children: [],
@@ -86,9 +86,9 @@ describe("retirement plan", () => {
     expect(oaLoan.reliesOnEstimate).toBe(true);
   });
 
-  it("still deducts employee CPF when balances and CPF LIFE are left out", () => {
+  it("leaves contributions, CPF LIFE, and an Ordinary Account sweep out for a foreigner", () => {
     const balances = { oa: 500_000, sa: 200_000, ra: 80_000, ma: 50_000, payoutAge: 65 };
-    const citizen = {
+    const foreigner = {
       ...base,
       currentAge: 35,
       retirementAge: 65,
@@ -99,17 +99,19 @@ describe("retirement plan", () => {
       includeCpf: false,
       cpf: balances,
     };
-    const leftOut = calculatePlan(citizen);
+    const leftOut = calculatePlan(foreigner);
     const sameWithoutBalances = calculatePlan({
-      ...citizen,
+      ...foreigner,
       cpf: { oa: 0, sa: 0, ra: 0, ma: 0, payoutAge: 65 },
     });
-    const included = calculatePlan({ ...citizen, includeCpf: true });
+    const included = calculatePlan({ ...foreigner, includeCpf: true });
 
-    expect(leftOut.monthlySavingToday).toBe(6_000 - 1_200 - 2_000);
+    expect(leftOut.monthlySavingToday).toBe(6_000 - 2_000);
     expect(leftOut.cpfLifeMonthly).toBe(0);
+    expect(leftOut.series.some((point) => (point.oaSweep ?? 0) > 0)).toBe(false);
     expect(leftOut.projectedCashAtRetirement).toBeCloseTo(sameWithoutBalances.projectedCashAtRetirement, 4);
     expect(leftOut.nestEggNeeded).toBeCloseTo(sameWithoutBalances.nestEggNeeded, 4);
+    expect(included.monthlySavingToday).toBe(6_000 - 1_200 - 2_000);
     expect(included.cpfLifeMonthly).toBeGreaterThan(0);
     expect(included.projectedCashAtRetirement).not.toBeCloseTo(leftOut.projectedCashAtRetirement, 0);
   });
@@ -211,7 +213,7 @@ describe("retirement plan", () => {
     expect(published.cohortYear).toBe(2026);
     expect(published.retirementSumEstimated).toBe(false);
     expect(estimateNotice(published)).not.toMatch(/after 2027/);
-    expect(estimateNotice(calculatePlan(base))).toBeNull();
+    expect(estimateNotice(calculatePlan({ ...base, includeCpf: false }))).toBeNull();
 
     const newsCohort = calculatePlan({
       ...base,

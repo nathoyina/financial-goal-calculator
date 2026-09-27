@@ -1,5 +1,5 @@
 import { type AnalyticsProp, STEP_NAMES, stepCompletedProps } from "../analytics/track";
-import type { OptionalAnswer, PlanFormState } from "./plan-form";
+import { stepAfter, type OptionalAnswer, type PlanFormState } from "./plan-form";
 
 export function optionalAnswer(step: number, form: PlanFormState): OptionalAnswer {
   if (step === 2) return form.loanAnswer;
@@ -95,7 +95,7 @@ export function chooseOptionalAnswer(step: number, form: PlanFormState, answer: 
   }
 
   if (answer === "no") {
-    return { form: next, nextStep: step + 1, completed: stepCompletedProps(stepName, "no") };
+    return { form: next, nextStep: stepAfter(step, next), completed: stepCompletedProps(stepName, "no") };
   }
   return { form: next, nextStep: null, completed: null };
 }

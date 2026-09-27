@@ -21,6 +21,7 @@ describe("analytics", () => {
         gap: -220_000,
         retirementAge: 40,
         hasHousingLoan: true,
+        residency: "citizen",
         enteredCpfBalances: "no",
         hasChildren: false,
         reliesOnEstimate: true,
@@ -35,6 +36,7 @@ describe("analytics", () => {
       gap_band: "100k-to-500k",
       retirement_age_band: "under-50",
       has_housing_loan: true,
+      residency: "citizen",
       entered_cpf_balances: "no",
       has_children: false,
       relies_on_estimate: true,
@@ -46,13 +48,44 @@ describe("analytics", () => {
       gap: 0,
       retirementAge: 65,
       hasHousingLoan: false,
+      residency: "pr",
       enteredCpfBalances: "yes",
       hasChildren: false,
       reliesOnEstimate: false,
       isFirstVerdict: false,
       spendingExceedsTakeHome: false,
     }).is_first_verdict).toBe(false);
-    expect(stepCompletedProps("retirement age")).toEqual({ step: "retirement age" });
+    expect(stepCompletedProps("retirement age", undefined, undefined, undefined, "citizen")).toEqual({
+      step: "retirement age",
+      residency: "citizen",
+    });
+    expect(stepCompletedProps("retirement age", undefined, undefined, undefined, "foreigner")).toEqual({
+      step: "retirement age",
+      residency: "foreigner",
+    });
+    expect(
+      verdictAnalyticsProps({
+        outcome: "on-track",
+        gap: 10,
+        retirementAge: 65,
+        hasHousingLoan: false,
+        residency: "foreigner",
+        hasChildren: false,
+        reliesOnEstimate: false,
+        isFirstVerdict: false,
+        spendingExceedsTakeHome: false,
+      }),
+    ).toEqual({
+      outcome: "on-track",
+      gap_band: "none",
+      retirement_age_band: "65-69",
+      has_housing_loan: false,
+      residency: "foreigner",
+      has_children: false,
+      relies_on_estimate: false,
+      is_first_verdict: false,
+      spending_exceeds_take_home: false,
+    });
     expect(stepCompletedProps("housing loan", "no")).toEqual({ step: "housing loan", answer: "no" });
     expect(stepCompletedProps("CPF", undefined, undefined, "no")).toEqual({
       step: "CPF",

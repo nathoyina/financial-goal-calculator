@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PLAN_FORM, parsePlanForm } from "./plan-form";
+import { DEFAULT_PLAN_FORM, parsePlanForm, stepAfter, stepBefore } from "./plan-form";
 import { chooseOptionalAnswer, optionalAnswer, optionalButtonState, pressOptionalButton, showsContinue } from "./optional-step";
 
 const child = {
@@ -48,6 +48,12 @@ describe("optional yes or no choice", () => {
   it("advances on No and records Step Completed with answer no", () => {
     const housing = chooseOptionalAnswer(2, { ...DEFAULT_PLAN_FORM, loanBalance: "180000" }, "no");
     expect(housing.nextStep).toBe(3);
+    const foreigner = chooseOptionalAnswer(2, { ...DEFAULT_PLAN_FORM, residency: "foreigner" }, "no");
+    expect(foreigner.nextStep).toBe(4);
+    expect(stepAfter(2, { ...DEFAULT_PLAN_FORM, residency: "citizen" })).toBe(3);
+    expect(stepAfter(2, { ...DEFAULT_PLAN_FORM, residency: "pr" })).toBe(3);
+    expect(stepBefore(4, { ...DEFAULT_PLAN_FORM, residency: "foreigner" })).toBe(2);
+    expect(stepBefore(4, { ...DEFAULT_PLAN_FORM, residency: "citizen" })).toBe(3);
     expect(housing.completed).toEqual({ step: "housing loan", answer: "no" });
     expect(housing.form.loanBalance).toBe("180000");
     expect(showsContinue(2, housing.form)).toBe(false);
@@ -69,6 +75,7 @@ describe("optional yes or no choice", () => {
   it("shows No still selected when returning, and Yes then No then Yes restores the figures", () => {
     const typed = {
       ...DEFAULT_PLAN_FORM,
+      residency: "citizen" as const,
       loanBalance: "180000",
       loanRate: "2.6",
       loanYears: "15",

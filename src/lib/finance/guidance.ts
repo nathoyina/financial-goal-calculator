@@ -22,14 +22,17 @@ export function yearsUntilRetirementLine(currentAge: number, retirementAge: numb
 export interface TakeHomeInput {
   currentAge: number;
   monthlyIncome: number;
+  /** False for a foreigner. Citizen and permanent resident keep the employee deduction. */
+  includeCpf?: boolean;
 }
 
 /**
- * Today's take-home pay: gross income minus the employee contribution from
- * monthlyContributions (age band, wage ceiling, below-S$750 rule). Leaving CPF
- * balances out of the plan does not turn this deduction off.
+ * Today's take-home pay. Citizen and permanent resident pay the employee
+ * contribution from monthlyContributions (age band, wage ceiling, below-S$750
+ * rule). A foreigner keeps the whole wage.
  */
 export function takeHomePay(input: TakeHomeInput): number {
+  if (input.includeCpf === false) return input.monthlyIncome;
   const { employee } = monthlyContributions(input.currentAge, input.monthlyIncome, calendarYearAtMonth(0));
   return input.monthlyIncome - employee;
 }
@@ -49,20 +52,24 @@ export interface MonthlySavingCard {
 }
 
 /** Words for the verdict card. A negative saving is a shortfall, shown without a minus sign. */
-export function monthlySavingCard(amount: number): MonthlySavingCard {
+export function monthlySavingCard(amount: number, includeCpf = true): MonthlySavingCard {
   if (amount < 0) {
     return {
       label: "Short each month now",
       displayAmount: Math.abs(amount),
       short: true,
-      explanation: "Spending is more than take-home pay, after CPF, a cash loan, and other income you'd save.",
+      explanation: includeCpf
+        ? "Spending is more than take-home pay, after CPF, a cash loan, and other income you'd save."
+        : "Spending is more than take-home pay, after a cash loan and other income you'd save.",
     };
   }
   return {
     label: "Saved each month now",
     displayAmount: amount,
     short: false,
-    explanation: "Income after CPF, minus spending and a cash loan, plus other income you'd save.",
+    explanation: includeCpf
+      ? "Income after CPF, minus spending and a cash loan, plus other income you'd save."
+      : "Income minus spending and a cash loan, plus other income you'd save.",
   };
 }
 

@@ -27,6 +27,7 @@ function shortfallForm(): PlanFormState {
     annualReturn: "0",
     annualInflation: "0",
     extraMonthlySaving: "0",
+    residency: "citizen",
     loanAnswer: "no",
     hasLoan: false,
     childrenAnswer: "no",

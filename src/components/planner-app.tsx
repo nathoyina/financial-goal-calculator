@@ -45,9 +45,12 @@ import {
   createChildForm,
   DEFAULT_PLAN_FORM,
   enteredCpfBalances,
+  includesCpf,
   parseDecimal,
   parsePlanForm,
   showsRetirementAccount,
+  stepAfter,
+  stepBefore,
   validateStep,
   type FieldError,
   type OptionalAnswer,
@@ -59,6 +62,7 @@ const HEADING_ID = "planner-heading";
 const HOUSING_HINT_ID = "housing-exclusion";
 
 const FIELD_IDS: Record<string, string> = {
+  residency: "residency",
   currentAge: "current-age",
   retirementAge: "retirement-age",
   lifeExpectancy: "life-expectancy",
@@ -134,18 +138,21 @@ export function PlannerApp({
 
   const parsed = useMemo(() => (step === VERDICT ? parsePlanForm(form) : null), [form, step]);
   const analyticsKey =
-    step === VERDICT && parsed?.ok
+    step === VERDICT && parsed?.ok && form.residency
       ? JSON.stringify(
           verdictAnalyticsProps({
             outcome: parsed.result.canRetire ? "on-track" : "shortfall",
             gap: parsed.result.gap,
             retirementAge: parsed.input.retirementAge,
             hasHousingLoan: parsed.input.loan !== null,
-            enteredCpfBalances: [parsed.input.cpf.oa, parsed.input.cpf.sa, parsed.input.cpf.ra, parsed.input.cpf.ma].some(
-              (balance) => balance > 0,
-            )
-              ? "yes"
-              : "no",
+            residency: form.residency,
+            enteredCpfBalances: parsed.input.includeCpf
+              ? [parsed.input.cpf.oa, parsed.input.cpf.sa, parsed.input.cpf.ra, parsed.input.cpf.ma].some(
+                  (balance) => balance > 0,
+                )
+                ? "yes"
+                : "no"
+              : undefined,
             hasChildren: parsed.input.children.length > 0,
             reliesOnEstimate: parsed.result.reliesOnEstimate,
             isFirstVerdict: false,
@@ -230,10 +237,12 @@ export function PlannerApp({
           ? stepCompletedProps(stepName, "yes", educationStepAnalytics(form.children))
           : stepName === "CPF"
             ? stepCompletedProps(stepName, undefined, undefined, enteredCpfBalances(form))
-            : stepCompletedProps(stepName, stepName === "housing loan" ? "yes" : undefined),
+            : stepName === "retirement age" && form.residency
+              ? stepCompletedProps(stepName, undefined, undefined, undefined, form.residency)
+              : stepCompletedProps(stepName, stepName === "housing loan" ? "yes" : undefined),
       );
     }
-    setStep((current) => current + 1);
+    setStep(stepAfter(step, form));
     requestHeadingFocus();
   };
 
@@ -254,6 +263,11 @@ export function PlannerApp({
     node?.focus();
   }, [error]);
 
+  const cpfIncluded = includesCpf(form.residency);
+  const progress = STEP_NAMES.flatMap((name, index) =>
+    name === "CPF" && form.residency === "foreigner" ? [] : [{ name, index }],
+  );
+  const progressIndex = Math.max(0, progress.findIndex((item) => item.index === step));
   const income = parseDecimal(form.monthlyIncome);
   const expenses = parseDecimal(form.monthlyExpensesNow);
   const ageToday = parseDecimal(form.currentAge);
@@ -267,6 +281,7 @@ export function PlannerApp({
           currentAge: ageToday,
           monthlyIncome: income,
           monthlyExpensesNow: expenses,
+          includeCpf: cpfIncluded,
         })
       : null;
 
@@ -300,11 +315,11 @@ export function PlannerApp({
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted">
-              {step < VERDICT ? `Step ${step + 1} of 5 · ${STEP_NAMES[step]}` : "Your verdict"}
+              {step < VERDICT ? `Step ${progressIndex + 1} of ${progress.length} · ${STEP_NAMES[step]}` : "Your verdict"}
             </p>
             <div className="mt-2 flex gap-2" aria-hidden="true">
-              {STEP_NAMES.map((name, index) => (
-                <div key={name} className={`h-1.5 flex-1 rounded-full ${index <= Math.min(step, 4) ? "bg-white" : "bg-[#333]"}`} />
+              {progress.map((item, index) => (
+                <div key={item.name} className={`h-1.5 flex-1 rounded-full ${index <= progressIndex ? "bg-white" : "bg-[#333]"}`} />
               ))}
             </div>
           </div>
@@ -315,6 +330,48 @@ export function PlannerApp({
               <h2 id={HEADING_ID} tabIndex={-1} className="text-2xl font-bold tracking-tight outline-none">
                 At what age do you want to retire?
               </h2>
+              <div className="flex flex-col gap-2">
+                <p id="residency-label" className="text-sm font-medium text-white">
+                  What is your residency status?
+                </p>
+                <p id="residency-hint" className="text-sm leading-5 text-muted">
+                  Nothing is selected until you pick one. CPF applies to citizens and permanent residents.
+                </p>
+                <div
+                  id="residency"
+                  role="group"
+                  aria-labelledby="residency-label"
+                  aria-describedby={form.residency === "pr" ? "residency-hint pr-rates" : "residency-hint"}
+                  tabIndex={error?.field === "residency" ? -1 : undefined}
+                  className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap"
+                >
+                  {(
+                    [
+                      ["citizen", "Singapore Citizen"],
+                      ["pr", "Permanent Resident"],
+                      ["foreigner", "Foreigner"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={`choice-pill pill w-full sm:w-auto ${form.residency === value ? "pill-shout" : "pill-ghost"}`}
+                      aria-pressed={form.residency === value}
+                      onClick={() => update({ residency: value })}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {form.residency === "pr" ? (
+                  <p id="pr-rates" className="text-sm leading-6 text-muted">
+                    Newer PRs contribute at lower rates in their first two years. This plan uses full rates.
+                  </p>
+                ) : null}
+                {error?.field === "residency" ? (
+                  <p role="alert" className="text-sm leading-5 text-danger">{error.message}</p>
+                ) : null}
+              </div>
               <NumberField id="current-age" label="Your age today" hint="Any age from a first job to a late career." value={form.currentAge} onChange={(value) => update({ currentAge: value })} suffix="years" error={fieldError("currentAge")} />
               <NumberField id="retirement-age" label="Retirement age" hint="40, 65, 72: any age after today and before the planning age." value={form.retirementAge} onChange={(value) => update({ retirementAge: value })} suffix="years" error={fieldError("retirementAge")} note={yearsLine} noteTone={ageToday !== null && retireAt !== null && retireAt > ageToday ? "neutral" : "caution"} />
               <NumberField id="life-expectancy" label="Plan until age" hint="How long the money should last. A planning age, not a prediction." value={form.lifeExpectancy} onChange={(value) => update({ lifeExpectancy: value })} suffix="years" error={fieldError("lifeExpectancy")} />
@@ -327,7 +384,9 @@ export function PlannerApp({
                 Income and spending
               </h2>
               <p className="text-sm leading-6 text-muted">
-                What you can save is income minus spending, then minus CPF and any cash loan on the next steps.
+                {cpfIncluded
+                  ? "What you can save is income minus spending, then minus CPF and any cash loan on the next steps."
+                  : "What you can save is income minus spending, then minus any cash loan on the next steps."}
               </p>
               <NumberField id="income" label="Gross monthly income" hint="Salary before CPF. Growth below raises this each year until you retire." value={form.monthlyIncome} onChange={(value) => update({ monthlyIncome: value })} prefix="S$" error={fieldError("monthlyIncome")} />
               <NumberField id="income-growth" label="Expected income growth" hint="Optional. Leave 0 if you do not want to assume raises." value={form.annualIncomeGrowth} onChange={(value) => update({ annualIncomeGrowth: value })} suffix="%" error={fieldError("annualIncomeGrowth")} />
@@ -339,15 +398,19 @@ export function PlannerApp({
                 </p>
               ) : null}
               <NumberField id="expenses-later" label="Monthly spending in retirement" hint="Leave out your home loan. What you want to spend each month after you stop work, in today’s prices." value={form.monthlyRetirementSpendingToday} onChange={(value) => update({ monthlyRetirementSpendingToday: value })} prefix="S$" error={fieldError("monthlyRetirementSpendingToday")} />
-              <NumberField id="cash" label="Cash savings" hint="Money outside CPF that you can invest and later spend." value={form.cashSavings} onChange={(value) => update({ cashSavings: value })} prefix="S$" error={fieldError("cashSavings")} />
+              <NumberField id="cash" label="Cash savings" hint={cpfIncluded ? "Money outside CPF that you can invest and later spend." : "Money you can invest and later spend."} value={form.cashSavings} onChange={(value) => update({ cashSavings: value })} prefix="S$" error={fieldError("cashSavings")} />
               <NumberField id="extra" label="Other income you'd save each month" hint="Side income, rental or bonuses. Your salary savings are already counted." value={form.extraMonthlySaving} onChange={(value) => update({ extraMonthlySaving: value })} prefix="S$" error={fieldError("extraMonthlySaving")} />
               <NumberField id="return" label="Expected annual return" hint="Nominal return on cash savings, before inflation." value={form.annualReturn} onChange={(value) => update({ annualReturn: value })} suffix="%" error={fieldError("annualReturn")} />
               <NumberField id="inflation" label="Expected inflation" hint="How fast prices, and your spending, rise each year." value={form.annualInflation} onChange={(value) => update({ annualInflation: value })} suffix="%" error={fieldError("annualInflation")} />
               {leftBeforeCpf !== null ? (
                 <p className="text-sm leading-6 text-muted">
-                  {leftBeforeCpf >= 0
-                    ? `Before CPF and a home loan, about ${formatMoney(leftBeforeCpf)} a month is left from income after spending.`
-                    : `Spending is above income by about ${formatMoney(-leftBeforeCpf)} a month, before CPF and a home loan.`}
+                  {cpfIncluded
+                    ? leftBeforeCpf >= 0
+                      ? `Before CPF and a home loan, about ${formatMoney(leftBeforeCpf)} a month is left from income after spending.`
+                      : `Spending is above income by about ${formatMoney(-leftBeforeCpf)} a month, before CPF and a home loan.`
+                    : leftBeforeCpf >= 0
+                      ? `Before a home loan, about ${formatMoney(leftBeforeCpf)} a month is left from income after spending.`
+                      : `Spending is above income by about ${formatMoney(-leftBeforeCpf)} a month, before a home loan.`}
                 </p>
               ) : null}
             </section>
@@ -378,11 +441,11 @@ export function PlannerApp({
                   <NumberField id="loan-instalment" label="Monthly instalment" hint="Optional. Leave blank to calculate it from the balance, rate, and years." value={form.loanInstalment} onChange={(value) => update({ loanInstalment: value })} prefix="S$" error={fieldError("loanInstalment")} describedByExtra={HOUSING_HINT_ID} />
                   <label className="flex flex-col gap-1.5 text-sm font-medium" htmlFor="loan-from">
                     Paid from
-                    <select id="loan-from" value={form.loanPaidFrom} aria-describedby={`${HOUSING_HINT_ID} loan-from-hint`} onChange={(event) => update({ loanPaidFrom: event.target.value as "cash" | "oa" })} className="h-12 rounded-full border border-border bg-void px-4 text-base text-white focus-visible:border-yellow focus-visible:ring-2 focus-visible:ring-yellow">
-                      <option value="oa">CPF Ordinary Account</option>
+                    <select id="loan-from" value={cpfIncluded ? form.loanPaidFrom : "cash"} aria-describedby={`${HOUSING_HINT_ID} loan-from-hint`} onChange={(event) => update({ loanPaidFrom: event.target.value as "cash" | "oa" })} className="h-12 rounded-full border border-border bg-void px-4 text-base text-white focus-visible:border-yellow focus-visible:ring-2 focus-visible:ring-yellow">
+                      {cpfIncluded ? <option value="oa">CPF Ordinary Account</option> : null}
                       <option value="cash">Cash</option>
                     </select>
-                    <span id="loan-from-hint" className="font-normal text-muted">OA payments reduce the Ordinary Account. Cash payments reduce what you can save.</span>
+                    <span id="loan-from-hint" className="font-normal text-muted">{cpfIncluded ? "OA payments reduce the Ordinary Account. Cash payments reduce what you can save." : "Cash payments reduce what you can save."}</span>
                   </label>
                 </>
               ) : null}
@@ -479,7 +542,7 @@ export function PlannerApp({
                 type="button"
                 className="pill pill-ghost"
                 onClick={() => {
-                  setStep((current) => current - 1);
+                  setStep(stepBefore(step, form));
                   requestHeadingFocus();
                 }}
               >
@@ -549,7 +612,7 @@ function Verdict({
     annualInflation: input.annualInflation,
     monthlyPayout: result.cpfLifeMonthly,
   });
-  const savingNow = monthlySavingCard(result.monthlySavingToday);
+  const savingNow = monthlySavingCard(result.monthlySavingToday, input.includeCpf);
   const growthSentence = savingsKeepGrowingSentence({
     currentAge: input.currentAge,
     retirementAge: input.retirementAge,
@@ -626,7 +689,7 @@ function Verdict({
         <div className="glass p-5">
           <dt className="text-sm text-muted">Nest egg needed</dt>
           <dd className="mt-1 text-3xl font-bold tabular-nums tracking-tight">{formatMoney(result.nestEggNeeded)}</dd>
-          <p className="mt-2 text-sm leading-5 text-muted">Cash required when you retire, after CPF LIFE, to last until the planning age.</p>
+          <p className="mt-2 text-sm leading-5 text-muted">{input.includeCpf ? "Cash required when you retire, after CPF LIFE, to last until the planning age." : "Cash required when you retire, to last until the planning age."}</p>
         </div>
         <div className={`p-5 ${surplus ? "glass glass-surplus" : "glass glass-gap"}`}>
           <dt className="flex items-center gap-2 text-sm text-muted">
@@ -638,25 +701,23 @@ function Verdict({
             Projected cash at retirement is {formatMoney(result.projectedCashAtRetirement)}. The {surplus ? "surplus" : "gap"} is that amount minus the nest egg.
           </p>
         </div>
+        {input.includeCpf ? (
         <div className="glass p-5">
           <dt className="flex flex-wrap items-center gap-2 text-sm text-muted">
             CPF LIFE payout
-            {input.includeCpf ? <EstimateTag /> : null}
+            <EstimateTag />
           </dt>
           <dd className="mt-1 text-3xl font-bold tabular-nums tracking-tight">
-            {input.includeCpf ? `${formatMoney(result.cpfLifeMonthly)} / mo` : "Not included"}
+            {formatMoney(result.cpfLifeMonthly)} / mo
           </dd>
-          {input.includeCpf ? (
-            <p className="mt-2 text-sm leading-5 text-white">
-              in {payoutYear} dollars, about {formatMoney(payoutToday)} in today’s money
-            </p>
-          ) : null}
+          <p className="mt-2 text-sm leading-5 text-white">
+            in {payoutYear} dollars, about {formatMoney(payoutToday)} in today’s money
+          </p>
           <p className="mt-2 text-sm leading-5 text-muted">
-            {input.includeCpf
-              ? "A flat monthly amount from the payout age. It does not rise with inflation."
-              : "CPF balances are left out, so no payout is counted."}
+            A flat monthly amount from the payout age. It does not rise with inflation.
           </p>
         </div>
+        ) : null}
         <div className="glass p-5">
           <dt className="text-sm text-muted">{savingNow.label}</dt>
           <dd className={`mt-1 text-3xl font-bold tabular-nums tracking-tight ${savingNow.short ? "text-yellow" : "text-white"}`}>
@@ -682,7 +743,7 @@ function Verdict({
 
       <div>
         <h3 className="text-lg font-bold">Balance over time</h3>
-        <p className="mt-1 text-sm leading-5 text-muted">The solid line is the working years. The dashed line is retirement. Cash only. A yellow marker shows Ordinary Account savings moved into cash.</p>
+        <p className="mt-1 text-sm leading-5 text-muted">{input.includeCpf ? "The solid line is the working years. The dashed line is retirement. Cash only. A yellow marker shows Ordinary Account savings moved into cash." : "The solid line is the working years. The dashed line is retirement. Cash only."}</p>
         <BalanceChart
           series={result.series}
           retirementAge={input.retirementAge}
@@ -693,6 +754,7 @@ function Verdict({
         />
       </div>
 
+      {input.includeCpf || result.estimates.length > 0 ? (
       <div className="flex flex-col gap-3">
         <h3 className="text-lg font-bold">Assumptions you should read</h3>
         {result.estimates.map((note) => (
@@ -703,18 +765,23 @@ function Verdict({
             </div>
           </div>
         ))}
+        {input.includeCpf ? (
         <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted">
-          <li>Contributions use the published citizen rates for each calendar year, on wages above {formatMoney(CPF_WAGE.fullRateAbove.value)}, capped at the {formatMoney(CPF_WAGE.ordinaryCeiling.value)} ordinary wage ceiling from {PLANNING_YEAR}. Senior-worker rates use the published 2027 table from January 2027, then stay on that table. Additional wages are not modelled. The annual wage ceiling is {formatMoney(CPF_WAGE.annualCeiling.value)}.</li>
+          <li>Contributions use the published citizen rates for each calendar year, on wages above {formatMoney(CPF_WAGE.fullRateAbove.value)}, capped at the {formatMoney(CPF_WAGE.ordinaryCeiling.value)} ordinary wage ceiling from {PLANNING_YEAR}. Senior-worker rates use the published 2027 table from January 2027, then stay on that table. Additional wages are not modelled. The annual wage ceiling is {formatMoney(CPF_WAGE.annualCeiling.value)}. Permanent residents use these full rates too. First-year and second-year rates are not modelled.</li>
           <li>The Full Retirement Sum for the year you turn 55, not a voluntary top-up to the Enhanced Retirement Sum, is set aside at 55. The Enhanced Retirement Sum is the {ENHANCED_RETIREMENT_SUM.year} top-up limit of {formatMoney(ENHANCED_RETIREMENT_SUM.value)}. It is not four times an earlier cohort’s Basic Retirement Sum.</li>
           <li>Interest is calculated on each month’s balance and added at the end of December. It is not monthly compounding.</li>
           <li>MediSave is not used for living costs. Ordinary Account savings, including interest already earned that year, move into spendable cash at retirement, or at 55 if you retire earlier. If an OA loan is still running, the leftover moves the month after the loan ends. Later Ordinary Account interest goes to cash, and the Retirement Account stays at zero once CPF LIFE starts.</li>
         </ul>
+        ) : null}
       </div>
+      ) : null}
 
       <aside className="rounded-[32px] border border-white/45 p-5">
         <h3 className="text-sm font-semibold text-white">Not financial advice</h3>
         <p className="mt-2 text-sm leading-6 text-muted">
-          This is an estimate for planning, not a CPF quote and not a recommendation. Markets, inflation, CPF rules, and your spending will differ. Check the figures with CPF Board or a licensed adviser before you act.
+          {input.includeCpf
+            ? "This is an estimate for planning, not a CPF quote and not a recommendation. Markets, inflation, CPF rules, and your spending will differ. Check the figures with CPF Board or a licensed adviser before you act."
+            : "This is an estimate for planning, not a recommendation. Markets, inflation, and your spending will differ. Check the figures with a licensed adviser before you act."}
         </p>
       </aside>
     </section>
